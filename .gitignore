@@ -1,2 +1,76 @@
 build/
 */build/
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.dll
+build/
+bin/
+data/
+imgui.ini
+*.vlfn
+
+# ignore my ycm files
+.ycm_extra_conf.py
+.ycm_extra_conf.pyc
+tags
+
+# Swap files
+*.swp
+
+# Model files
+*/res/models
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+*.exe
+*.pdb
+*.ilk
+*.tlog
+*.obj
+*.log
+*.lastbuildstate
+*.opensdf
+*.sdf
+*.suo
+*.out
+*_i.c
+*_p.c
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.vspscc
+.builds
+*.dotCover
+# Visual C++ cache files
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+
+# Visual Studio profiler
+*.psess
+*.vsp
+
+Lesson*/Debug
+Lesson*/Release
+out/
+
