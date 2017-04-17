@@ -10,6 +10,30 @@ bin/
 data/
 imgui.ini
 *.vlfn
+# All LaTeX build artifacts should be ignored
+*.aux
+*.dvi
+*.log
+*.pdf
+*.swp
+*.gz
+*.bbl
+*.blg
+*.out
+*.lbl
+*.brf
+__pycache__
+eps/
+*.swp
+*target/
+*.ppm
+*.bmp
+*.obj
+*.mtl
+*.binary
+*.mp4
+imgui.ini
+
 
 # ignore my ycm files
 .ycm_extra_conf.py
