@@ -4,30 +4,20 @@
 #include <SDL.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <vtkSmartPointer.h>
+#include <vtkImageReader.h>
+
 #include "imgui-1.49/imgui.h"
 #include "imgui-1.49/imgui_impl_sdl_gl3.h"
 #include "glt/gl_core_4_5.h"
 #include "glt/arcball_camera.h"
 #include "glt/debug.h"
 
-#include "vtkPolyDataMapper.h"
-#include "vtkActor.h"
-#include "vtkCamera.h"
-#include "ExternalVTKWidget.h"
-#include "vtkExternalOpenGLRenderer.h"
-#include "vtkExternalOpenGLCamera.h"
-#include "vtkExternalOpenGLRenderWindow.h"
-#include "vtkNew.h"
-#include "vtkSphereSource.h"
-#include "vtkCallbackCommand.h"
-#include "vtkLight.h"
-#include "vtkProperty.h"
-
 #include "transfer_function.h"
 #include "external_gl_renderer.h"
 
-static int WIN_WIDTH = 1280;
-static int WIN_HEIGHT = 720;
+static size_t WIN_WIDTH = 1280;
+static size_t WIN_HEIGHT = 720;
 
 void run_app(SDL_Window *win, const std::vector<std::string> &args);
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
@@ -45,12 +35,15 @@ int main(int argc, const char **argv) {
 	return 0;
 }
 void run_app(SDL_Window *win, const std::vector<std::string> &args) {
+	// Read the volume data using vtk
+
 	TransferFunction tfcn;
-
-	const glm::mat4 proj_mat = glm::perspective(glm::radians(65.f),
+	glm::mat4 proj_mat = glm::perspective(glm::radians(65.f),
 			static_cast<float>(WIN_WIDTH) / WIN_HEIGHT, 0.1f, 500.f);
-	const glm::mat4 start_cam = glm::lookAt(glm::vec3{0, 0, 4}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0});
+	glt::ArcBallCamera camera(glm::lookAt(glm::vec3{0, 0, 4}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0}),
+			400.0, 75.0, {WIN_WIDTH, WIN_HEIGHT});
 
+	bool ui_hovered = false;
 	bool quit = false;
 	while (!quit) {
 		SDL_Event e;
@@ -60,6 +53,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 			if (e.type == SDL_QUIT || (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)){
 				quit = true;
 				break;
+			}
+			if (!ui_hovered) {
+				camera.sdl_input(e, 1000.f / ImGui::GetIO().Framerate);
 			}
 		}
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -73,6 +69,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 				1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
 		tfcn.draw_ui();
+
+		ui_hovered = ImGui::IsMouseHoveringAnyWindow();
 		ImGui::Render();
 
 		SDL_GL_SwapWindow(win);

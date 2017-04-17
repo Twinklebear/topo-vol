@@ -32,25 +32,10 @@ public:
 	 * Create an arcball camera with some look at matrix
 	 * motion speed: units per second speed of panning the camera
 	 * rotation speed: radians per second speed of rotation the camera
-	 * inv_screen: { 1 / WIN_X_SIZE, 1 / WIN_Y_SIZE }
+	 * screen: { WIN_X_SIZE, WIN_Y_SIZE }
 	 */
 	ArcBallCamera(const glm::mat4 &look_at, float motion_speed, float rotation_speed,
-			const std::array<float, 2> &inv_screen);
-	/*
-	 * Handle mouse motion events to move the camera
-	 * returns true if the camera has moved
-	 */
-	bool mouse_motion(const SDL_MouseMotionEvent &mouse, float elapsed);
-	/*
-	 * Handle mouse scroll events to zoom in/out
-	 * returns true if the camera has moved
-	 */
-	bool mouse_scroll(const SDL_MouseWheelEvent &scroll, float elapsed);
-	/*
-	 * Handle keyboard events to reset the camera
-	 * returns true if the camera has moved
-	 */
-	bool keypress(const SDL_KeyboardEvent &key);
+			const std::array<size_t, 2> &screen);
 	/*
 	 * Get the camera transformation matrix
 	 */
@@ -65,9 +50,27 @@ public:
 	glm::vec3 eye_pos() const;
 	/* Update the screen resolution, e.g. if the window is resized
 	 */
-	void update_screen(const int screen_x, const int screen_y);
+	void update_screen(const size_t screen_x, const size_t screen_y);
+	/* Handle an SDL input event, returns true if the camera moved
+	 */
+	bool sdl_input(const SDL_Event &e, const float elapsed);
 
 private:
+	/*
+	 * Handle mouse motion events to move the camera
+	 * returns true if the camera has moved
+	 */
+	bool mouse_motion(const SDL_MouseMotionEvent &mouse, const float elapsed);
+	/*
+	 * Handle mouse scroll events to zoom in/out
+	 * returns true if the camera has moved
+	 */
+	bool mouse_scroll(const SDL_MouseWheelEvent &scroll, const float elapsed);
+	/*
+	 * Handle keyboard events to reset the camera
+	 * returns true if the camera has moved
+	 */
+	bool keypress(const SDL_KeyboardEvent &key);
 	/*
 	 * Handle rotation events
 	 */

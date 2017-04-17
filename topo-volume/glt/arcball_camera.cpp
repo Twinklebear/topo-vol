@@ -3,12 +3,35 @@
 #include "arcball_camera.h"
 
 glt::ArcBallCamera::ArcBallCamera(const glm::mat4 &look_at, float motion_speed, float rotation_speed,
-		const std::array<float, 2> &inv_screen)
+		const std::array<size_t, 2> &screen)
 	: look_at(look_at), translation(glm::mat4{}), rotation(glm::quat{}), camera(look_at),
 	inv_camera(glm::inverse(camera)), motion_speed(motion_speed), rotation_speed(rotation_speed),
-	inv_screen(inv_screen)
+	inv_screen({1.f / screen[0], 1.f / screen[1]})
 {}
-bool glt::ArcBallCamera::mouse_motion(const SDL_MouseMotionEvent &mouse, float elapsed){
+const glm::mat4& glt::ArcBallCamera::transform() const {
+	return camera;
+}
+const glm::mat4& glt::ArcBallCamera::inv_transform() const {
+	return inv_camera;
+}
+glm::vec3 glt::ArcBallCamera::eye_pos() const {
+	return glm::vec3{inv_camera * glm::vec4{0, 0, 0, 1}};
+}
+void glt::ArcBallCamera::update_screen(const size_t screen_x, const size_t screen_y){
+	inv_screen[0] = 1.0f / screen_x;
+	inv_screen[1] = 1.0f / screen_y;
+}
+bool glt::ArcBallCamera::sdl_input(const SDL_Event &e, const float elapsed) {
+	if (e.type == SDL_MOUSEMOTION) {
+		return mouse_motion(e.motion, elapsed);
+	} else if (e.type == SDL_MOUSEWHEEL) {
+		return mouse_scroll(e.wheel, elapsed);
+	} else if (e.type == SDL_KEYDOWN) {
+		return keypress(e.key);
+	}
+	return false;
+}
+bool glt::ArcBallCamera::mouse_motion(const SDL_MouseMotionEvent &mouse, const float elapsed){
 	if (mouse.state & SDL_BUTTON_LMASK && !(SDL_GetModState() & KMOD_CTRL)){
 		rotate(mouse, elapsed);
 		inv_camera = glm::inverse(camera);
@@ -22,7 +45,7 @@ bool glt::ArcBallCamera::mouse_motion(const SDL_MouseMotionEvent &mouse, float e
 	}
 	return false;
 }
-bool glt::ArcBallCamera::mouse_scroll(const SDL_MouseWheelEvent &scroll, float elapsed){
+bool glt::ArcBallCamera::mouse_scroll(const SDL_MouseWheelEvent &scroll, const float elapsed){
 	if (scroll.y != 0){
 		glm::vec3 motion{0.f};
 		motion.z = scroll.y * 0.05;
@@ -42,19 +65,6 @@ bool glt::ArcBallCamera::keypress(const SDL_KeyboardEvent &key){
 		return true;
 	}
 	return false;
-}
-const glm::mat4& glt::ArcBallCamera::transform() const {
-	return camera;
-}
-const glm::mat4& glt::ArcBallCamera::inv_transform() const {
-	return inv_camera;
-}
-glm::vec3 glt::ArcBallCamera::eye_pos() const {
-	return glm::vec3{inv_camera * glm::vec4{0, 0, 0, 1}};
-}
-void glt::ArcBallCamera::update_screen(const int screen_x, const int screen_y){
-	inv_screen[0] = 1.0f / screen_x;
-	inv_screen[1] = 1.0f / screen_y;
 }
 void glt::ArcBallCamera::rotate(const SDL_MouseMotionEvent &mouse, float elapsed){
 	using namespace glt;
