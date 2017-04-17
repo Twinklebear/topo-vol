@@ -76,7 +76,6 @@ std::string glt::load_shader_file(const std::string &fname, std::vector<std::str
 		// Local file includes with ""
 		if (open != std::string::npos && close != std::string::npos) {
 			included = dir + content.substr(open + 1, close - open - 1);
-			std::cout << "Local include of shader " << included << "\n";
 		} else {
 			// See if it's a global include with <>
 			open = content.find("<", inc + 8);
@@ -85,7 +84,6 @@ std::string glt::load_shader_file(const std::string &fname, std::vector<std::str
 				throw std::runtime_error("Failed to parse include string in file " + fname);
 			}
 			included = glt::get_resource_path() + content.substr(open + 1, close - open - 1);
-			std::cout << "Global include of shader " << included << "\n";
 		}
 
 		content.erase(inc, close - inc + 2);

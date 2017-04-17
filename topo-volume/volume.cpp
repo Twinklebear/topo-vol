@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <glm/glm.hpp>
+#include <vtkType.h>
 #include "glt/util.h"
 #include "volume.h"
 
@@ -23,21 +24,29 @@ static const std::array<float, 42> CUBE_STRIP = {
 	0, 0, 0
 };
 
-Volume::Volume(GLenum data_format, GLenum gl_format, std::shared_ptr<std::vector<char>> &data,
-		std::array<int, 3> vol_dims, std::array<float, 3> vol_render_dims)
-	: dims(vol_dims), internal_format(gl_format), format(data_format),
-	vol_data(data), transform_dirty(true), translation(0), scaling(1)
+static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type) {
+	switch (vtk) {
+		case VTK_CHAR:
+		case VTK_UNSIGNED_CHAR:
+			gl_internal = GL_R8;
+			gl_type = GL_UNSIGNED_BYTE;
+			break;
+		case VTK_FLOAT:
+			gl_internal = GL_R32F;
+			gl_type = GL_FLOAT;
+			break;
+		default:
+			throw std::runtime_error("Unsupported VTK data type!");
+	}
+}
+
+Volume::Volume(vtkImageData *vol)
+	: vol_data(vol), transform_dirty(true), translation(0), scaling(1)
 {
-	if (vol_render_dims[0] < 0 || vol_render_dims[1] < 0 || vol_render_dims[2] < 0){
-		// Find the max side of the volume and set this as 1, then find scaling for the other sides
-		float max_axis = static_cast<float>(std::max(dims[0], std::max(dims[1], dims[2])));
-		for (size_t i = 0; i < 3; ++i){
-			vol_render_size[i] = vol_dims[i] / max_axis;
-		}
-	} else {
-		for (size_t i = 0; i < 3; ++i){
-			vol_render_size[i] = vol_render_dims[i];
-		}
+	vtk_type_to_gl(vol->GetScalarType(), internal_format, format);
+	for (size_t i = 0; i < 3; ++i) {
+		dims[i] = vol->GetDimensions()[i];
+		vol_render_size[i] = vol->GetSpacing()[i];
 	}
 	build_histogram();
 }
@@ -47,9 +56,7 @@ Volume::~Volume(){
 		allocator->free(vol_props);
 		glDeleteVertexArrays(1, &vao);
 		glDeleteTextures(1, &texture);
-		// TODO: Why does GL crash on invalid program value, when this is
-		// definitely a valid fucking program?
-		//glDeleteProgram(shader);
+		glDeleteProgram(shader);
 	}
 }
 void Volume::translate(const glm::vec3 &v){
@@ -68,32 +75,10 @@ void Volume::set_base_matrix(const glm::mat4 &m){
 	base_matrix = m;
 	transform_dirty = true;
 }
-void Volume::set_volume(GLenum data_format, GLenum gl_format, std::shared_ptr<std::vector<char>> &data,
-	std::array<int, 3> vol_dims, std::array<float, 3> vol_render_dims)
-{
-	format = data_format;
-	internal_format = gl_format;
-	vol_data = data;
-	dims = vol_dims;
-	if (vol_render_dims[0] < 0 || vol_render_dims[1] < 0 || vol_render_dims[2] < 0){
-		// Find the max side of the volume and set this as 1, then find scaling for the other sides
-		float max_axis = static_cast<float>(std::max(dims[0], std::max(dims[1], dims[2])));
-		for (size_t i = 0; i < 3; ++i){
-			vol_render_size[i] = vol_dims[i] / max_axis;
-		}
-	} else {
-		for (size_t i = 0; i < 3; ++i){
-			vol_render_size[i] = vol_render_dims[i];
-		}
-	}
-	transform_dirty = true;
-	build_histogram();
-}
-void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator, const glm::mat4 &view_mat){
+void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	// We need to apply the inverse volume transform to the eye to get it in the volume's space
 	glm::mat4 vol_transform = glm::translate(translation) * glm::mat4_cast(rotation)
 		* glm::scale(scaling * vol_render_size) * base_matrix;
-	const glm::vec3 vol_eye_pos = glm::vec3{ glm::inverse(vol_transform) * glm::inverse(view_mat) * glm::vec4{0, 0, 0, 1} };
 	// Setup shaders, vao and volume texture
 	if (!allocator){
 		glGenVertexArrays(1, &vao);
@@ -159,7 +144,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator, const 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
 		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, GL_RED,
-				format, static_cast<const void*>(vol_data->data()));
+				format, static_cast<const void*>(vol_data->GetScalarPointer()));
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -212,46 +197,15 @@ void Volume::build_histogram(){
 	// Find scale & bias for the volume data
 	if (internal_format == GL_R32F && format == GL_FLOAT){
 		// Find the min/max values in the volume
-		float *data_ptr = reinterpret_cast<float*>(vol_data->data());
-		auto minmax = std::minmax_element(data_ptr, data_ptr + vol_data->size() / 4);
-		vol_min = *minmax.first;
-		vol_max = *minmax.second;
+		vol_min = vol_data->GetScalarRange()[0];
+		vol_max = vol_data->GetScalarRange()[1];
 		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
-#if 0
-	} else if (internal_format == GL_R16F && format == GL_HALF_FLOAT){
-		// Find the min/max values in the volume
-		unsigned short *data_ptr = reinterpret_cast<unsigned short*>(vol_data->data());
-		auto minmax = std::minmax_element(data_ptr, data_ptr + vol_data->size() / 2,
-				[](const unsigned short &a, const unsigned short &b){
-					return glt::half_to_float(a) < glt::half_to_float(b);
-				});
-		vol_min = glt::half_to_float(*minmax.first);
-		vol_max = glt::half_to_float(*minmax.second);
-		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
-#endif
-	} else if (internal_format == GL_R16 && format == GL_UNSIGNED_SHORT){
-		// Find the min/max values in the volume
-		unsigned short *data_ptr = reinterpret_cast<unsigned short*>(vol_data->data());
-		auto minmax = std::minmax_element(data_ptr, data_ptr + vol_data->size() / 2);
-		vol_min = *minmax.first;
-		vol_max = *minmax.second;
-		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
-		// Check if we need to re-scale so the data occupies the range [0, SHORT_MAX] so
-		// OpenGL will re-scale it into [0.0, 1.0] properly when doing texture lookups
-		if (*minmax.first != 0 || *minmax.second != std::numeric_limits<unsigned short>::max()){
-			float short_max = std::numeric_limits<unsigned short>::max();
-			float old_min = *minmax.first;
-			float old_max = *minmax.second;
-			std::transform(data_ptr, data_ptr + vol_data->size() / 2, data_ptr,
-					[&](const unsigned short &s){
-						return static_cast<unsigned short>(short_max * (s - old_min) / (old_max - old_min));
-					});
-		}
 	}
+
 	// For non f32 or f16 textures GL will normalize for us, given that we've done
 	// the proper range correction above if needed (e.g. for R16)
-	if (internal_format == GL_R8 || internal_format == GL_R16){
-		std::cout << "Setting gl min max to {0, 1} for R8 or R16 data\n";
+	if (internal_format == GL_R8) {
+		std::cout << "Setting gl min max to {0, 1} for R8 data\n";
 		vol_min = 0;
 		vol_max = 1;
 	}
@@ -259,24 +213,17 @@ void Volume::build_histogram(){
 	// Build the histogram for the data
 	histogram.clear();
 	histogram.resize(100, 0);
+	const size_t num_voxels = dims[0] * dims[1] * dims[2];
 	if (format == GL_FLOAT){
-		float *data_ptr = reinterpret_cast<float*>(vol_data->data());
-		for (size_t i = 0; i < vol_data->size() / 4; ++i){
+		float *data_ptr = reinterpret_cast<float*>(vol_data->GetScalarPointer());
+		for (size_t i = 0; i < num_voxels; ++i){
 			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
 			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
 			++histogram[bin];
 		}
-	} else if (format == GL_UNSIGNED_SHORT){
-		float short_max = std::numeric_limits<unsigned short>::max();
-		unsigned short *data_ptr = reinterpret_cast<unsigned short*>(vol_data->data());
-		for (size_t i = 0; i < vol_data->size() / 2; ++i){
-			size_t bin = static_cast<size_t>(data_ptr[i] / short_max * histogram.size());
-			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
-			++histogram[bin];
-		}
 	} else if (format == GL_UNSIGNED_BYTE){
-		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vol_data->data());
-		for (size_t i = 0; i < vol_data->size() / 4; ++i){
+		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vol_data->GetScalarPointer());
+		for (size_t i = 0; i < num_voxels; ++i){
 			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
 			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
 			++histogram[bin];

@@ -1,20 +1,25 @@
 #include <thread>
-#include <chrono>
+#include <vector>
+#include <string>
+#include <cassert>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <vtkSmartPointer.h>
-#include <vtkImageReader.h>
+#include <vtkXMLImageDataReader.h>
+#include <vtkImageData.h>
 
 #include "imgui-1.49/imgui.h"
 #include "imgui-1.49/imgui_impl_sdl_gl3.h"
 #include "glt/gl_core_4_5.h"
 #include "glt/arcball_camera.h"
 #include "glt/debug.h"
+#include "glt/buffer_allocator.h"
 
 #include "transfer_function.h"
 #include "external_gl_renderer.h"
+#include "volume.h"
 
 static size_t WIN_WIDTH = 1280;
 static size_t WIN_HEIGHT = 720;
@@ -36,15 +41,47 @@ int main(int argc, const char **argv) {
 }
 void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// Read the volume data using vtk
+	vtkSmartPointer<vtkXMLImageDataReader> reader
+		= vtkSmartPointer<vtkXMLImageDataReader>::New(); 
+	reader->SetFileName(args[1].c_str());
+	reader->Update();
+	vtkImageData *vol = reader->GetOutput();
+	assert(vol);
+	std::cout << "loaded img '" << args[1] << "'\n";
+	vol->PrintSelf(std::cout, vtkIndent(0));
 
-	TransferFunction tfcn;
+	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
+
 	glm::mat4 proj_mat = glm::perspective(glm::radians(65.f),
-			static_cast<float>(WIN_WIDTH) / WIN_HEIGHT, 0.1f, 500.f);
-	glt::ArcBallCamera camera(glm::lookAt(glm::vec3{0, 0, 4}, glm::vec3{0, 0, 0}, glm::vec3{0, 1, 0}),
-			400.0, 75.0, {WIN_WIDTH, WIN_HEIGHT});
+			static_cast<float>(WIN_WIDTH) / WIN_HEIGHT, 0.1f, 200.f);
+	glt::ArcBallCamera camera(glm::lookAt(glm::vec3{0.5, 0.5, 2.5}, glm::vec3{0.5, 0.5, 0}, glm::vec3{0, 1, 0}),
+			1.0, 75.0, {WIN_WIDTH, WIN_HEIGHT});
+
+	// Note the vec3 is padded to a vec4 size, so we need a bit more room
+	auto viewing_buf = allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4), glt::BufAlignment::UNIFORM_BUFFER);
+	glBindBuffer(GL_UNIFORM_BUFFER, viewing_buf.buffer);
+	glBindBufferRange(GL_UNIFORM_BUFFER, 0, viewing_buf.buffer, viewing_buf.offset, viewing_buf.size);
+	{
+		char *buf = static_cast<char*>(viewing_buf.map(GL_UNIFORM_BUFFER,
+					GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT));
+		glm::mat4 *mats = reinterpret_cast<glm::mat4*>(buf);
+		// While it says vec3 in the buffer with std140 layout they'll be padded to vec4's
+		glm::vec4 *vecs = reinterpret_cast<glm::vec4*>(buf + 2 * sizeof(glm::mat4));
+		mats[0] = proj_mat;
+		mats[1] = camera.transform();
+		vecs[0] = glm::vec4{camera.eye_pos(), 1};
+
+		glBindBufferRange(GL_UNIFORM_BUFFER, 0, viewing_buf.buffer, viewing_buf.offset, viewing_buf.size);
+		viewing_buf.unmap(GL_UNIFORM_BUFFER);
+	}
+
+	// Setup transfer function and volume
+	TransferFunction tfcn;
+	Volume volume(vol);
 
 	bool ui_hovered = false;
 	bool quit = false;
+	bool camera_updated = false;
 	while (!quit) {
 		SDL_Event e;
 		while (SDL_PollEvent(&e)){
@@ -55,13 +92,24 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 				break;
 			}
 			if (!ui_hovered) {
-				camera.sdl_input(e, 1000.f / ImGui::GetIO().Framerate);
+				camera_updated |= camera.sdl_input(e, 1000.f / ImGui::GetIO().Framerate);
 			}
 		}
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if (camera_updated) {
+			char *buf = static_cast<char*>(viewing_buf.map(GL_UNIFORM_BUFFER, GL_MAP_WRITE_BIT));
+			glm::mat4 *mats = reinterpret_cast<glm::mat4*>(buf);
+			glm::vec3 *eye_pos = reinterpret_cast<glm::vec3*>(buf + 2 * sizeof(glm::mat4));
+			mats[1] = camera.transform();
+			*eye_pos = camera.eye_pos();
+
+			viewing_buf.unmap(GL_UNIFORM_BUFFER);
+			camera_updated = false;
+		}
 
 		glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
 		tfcn.render();
+		volume.render(allocator);
 
 		// Draw UI
 		ImGui_ImplSdlGL3_NewFrame(win);
