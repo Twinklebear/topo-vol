@@ -8,11 +8,12 @@
 using namespace glt;
 
 void glt::register_debug_callback(){
-	if (ogl_IsVersionGEQ(4, 3)){
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageCallback(debug_callback, nullptr);
-		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
-	}
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+	glDebugMessageCallback(debug_callback, nullptr);
+	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
+	// Suppress Nvidia's binding info spam
+	glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_OTHER,
+			GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
 }
 #ifdef _WIN32
 void APIENTRY glt::debug_callback(GLenum src, GLenum type, GLuint id, GLenum severity,
@@ -36,58 +37,74 @@ void glt::log_debug_msg(GLenum src, GLenum type, GLuint, GLenum severity, GLsize
 	float sec = SDL_GetTicks() / 1000.f;
 	int min = static_cast<int>(sec / 60.f);
 	sec -= sec / 60.f;
-	std::cout << "[" << min << ":"
-		<< std::setprecision(3) << sec << "] OpenGL Debug -";
-	switch (severity){
-	case GL_DEBUG_SEVERITY_HIGH:
-		std::cout << " High severity";
-		break;
-	case GL_DEBUG_SEVERITY_MEDIUM:
-		std::cout << " Medium severity";
-		break;
-	case GL_DEBUG_SEVERITY_LOW:
-		std::cout << " Low severity";
-	}
+	std::cout << "---------\n[" << min << ":"
+		<< std::setprecision(3) << sec << "] OpenGL Debug Message";
+
+	std::cout << "\n\tSource: ";
 	switch (src){
 	case GL_DEBUG_SOURCE_API:
-		std::cout << " API";
+		std::cout << "API";
 		break;
 	case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-		std::cout << " Window system";
+		std::cout << "Window System";
 		break;
 	case GL_DEBUG_SOURCE_SHADER_COMPILER:
-		std::cout << " Shader compiler";
+		std::cout << "Shader Compiler";
 		break;
 	case GL_DEBUG_SOURCE_THIRD_PARTY:
-		std::cout << " Third party";
+		std::cout << "Third Party";
 		break;
 	case GL_DEBUG_SOURCE_APPLICATION:
-		std::cout << " Application";
+		std::cout << "Application";
 		break;
 	default:
-		std::cout << " Other";
+		std::cout << "Other";
 	}
+
+	std::cout << "\n\tType: ";
 	switch (type){
 	case GL_DEBUG_TYPE_ERROR:
-		std::cout << " Error";
+		std::cout << "Error";
 		break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-		std::cout << " Deprecated behavior";
+		std::cout << "Deprecated Behavior";
 		break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-		std::cout << " Undefined behavior";
+		std::cout << "Undefined Behavior";
 		break;
 	case GL_DEBUG_TYPE_PORTABILITY:
-		std::cout << " Portability";
+		std::cout << "Portability";
 		break;
 	case GL_DEBUG_TYPE_PERFORMANCE:
-		std::cout << " Performance";
+		std::cout << "Performance";
+		break;
+	case GL_DEBUG_TYPE_MARKER:
+		std::cout << "Marker";
 		break;
 	default:
-		std::cout << " Other";
+		std::cout << "Other";
 	}
-	std::cout << " Tag: " << tag;
-	std::cout << ":\n\t" << msg << "\n";
+
+	std::cout << "\n\tSeverity: ";
+	switch (severity){
+	case GL_DEBUG_SEVERITY_HIGH:
+		std::cout << "High";
+		break;
+	case GL_DEBUG_SEVERITY_MEDIUM:
+		std::cout << "Medium";
+		break;
+	case GL_DEBUG_SEVERITY_LOW:
+		std::cout << "Low";
+		break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION:
+		std::cout << "Notification";
+		break;
+	default:
+		std::cout << "Unknown";
+	}
+
+	std::cout << "\n\tTag: " << tag << "\n\tMessage: " << msg
+		<< "\n---------\n";
 	// Break for a stack trace of sorts
 	assert(severity != GL_DEBUG_SEVERITY_HIGH && type != GL_DEBUG_TYPE_ERROR);
 }
