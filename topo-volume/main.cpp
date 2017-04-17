@@ -22,17 +22,30 @@
 #include "vtkCallbackCommand.h"
 #include "vtkLight.h"
 #include "vtkProperty.h"
+
+#include "transfer_function.h"
 #include "external_gl_renderer.h"
 
 static int WIN_WIDTH = 1280;
 static int WIN_HEIGHT = 720;
 
+void run_app(SDL_Window *win, const std::vector<std::string> &args);
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
 
 int main(int argc, const char **argv) {
 	SDL_Window *win = nullptr;
 	SDL_GLContext ctx = nullptr;
 	setup_window(win, ctx);
+	run_app(win, std::vector<std::string>(argv, argv + argc));
+
+	ImGui_ImplSdlGL3_Shutdown();
+	SDL_GL_DeleteContext(ctx);
+	SDL_DestroyWindow(win);
+	SDL_Quit();
+	return 0;
+}
+void run_app(SDL_Window *win, const std::vector<std::string> &args) {
+	TransferFunction tfcn;
 
 	const glm::mat4 proj_mat = glm::perspective(glm::radians(65.f),
 			static_cast<float>(WIN_WIDTH) / WIN_HEIGHT, 0.1f, 500.f);
@@ -52,23 +65,18 @@ int main(int argc, const char **argv) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+		tfcn.render();
 
 		// Draw UI
 		ImGui_ImplSdlGL3_NewFrame(win);
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
 				1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
+		tfcn.draw_ui();
 		ImGui::Render();
 
 		SDL_GL_SwapWindow(win);
 	}
-
-	ImGui_ImplSdlGL3_Shutdown();
-	SDL_GL_DeleteContext(ctx);
-	SDL_DestroyWindow(win);
-	SDL_Quit();
-
-	return 0;
 }
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx) {
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0){
@@ -118,6 +126,7 @@ void setup_window(SDL_Window *&win, SDL_GLContext &ctx) {
 
 	ImGui_ImplSdlGL3_Init(win);
 	glEnable(GL_DEPTH_TEST);
+	glClearColor(0.1, 0.1, 0.1, 1);
 	glClearDepth(1.0);
 }
 
