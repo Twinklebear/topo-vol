@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <vtkImageData.h>
+#include <vtkDataArray.h>
 #include "glt/gl_core_4_5.h"
 #include "glt/buffer_allocator.h"
 
@@ -22,8 +23,10 @@ class Volume {
 	// render_dims to track the dimensions of the full IDX data
 	// while dims tracks the size of the currently loaded data
 	vtkImageData *vol_data;
+	vtkDataArray *vtk_data;
 	std::array<int, 3> dims;
-	GLenum internal_format, format;
+	GLenum internal_format, format, pixel_format;
+	bool uploaded;
 
 	// GL stuff
 	GLuint shader, vao, texture;
@@ -43,7 +46,7 @@ public:
 	// user handles it? Maybe the user could pass the value min/max as well?
 	std::vector<size_t> histogram;
 
-	Volume(vtkImageData *vol);
+	Volume(vtkImageData *vol, const std::string &array_name = "ImageFile");
 	~Volume();
 	Volume(const Volume&) = delete;
 	Volume& operator=(const Volume&) = delete;

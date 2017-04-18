@@ -2,7 +2,7 @@
 
 #include "vol_global.glsl"
 
-uniform sampler3D volume;
+uniform isampler3D volume;
 uniform sampler1D palette;
 uniform bool isosurface;
 uniform float isovalue;
@@ -61,7 +61,7 @@ void main(void){
 			p_prev = p;
 		} else {
 			vec4 color_sample = texture(palette, palette_sample);
-			color_sample.a *= pow(dt, 0.68);
+			color_sample.a *= pow(dt, 0.4);
 			color.rgb += (1 - color.a) * color_sample.a * color_sample.rgb;
 			color.a += (1 - color.a) * color_sample.a;
 			if (color.a >= 0.97) {

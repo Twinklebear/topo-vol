@@ -4,6 +4,8 @@
 #include <limits>
 #include <glm/glm.hpp>
 #include <vtkType.h>
+#include <vtkFieldData.h>
+#include <vtkDataSet.h>
 #include "glt/util.h"
 #include "volume.h"
 
@@ -24,7 +26,8 @@ static const std::array<float, 42> CUBE_STRIP = {
 	0, 0, 0
 };
 
-static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type) {
+static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, GLenum &pixel_format) {
+	pixel_format = GL_RED;
 	switch (vtk) {
 		case VTK_CHAR:
 		case VTK_UNSIGNED_CHAR:
@@ -35,15 +38,27 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type) 
 			gl_internal = GL_R32F;
 			gl_type = GL_FLOAT;
 			break;
+		case VTK_INT:
+			gl_internal = GL_R32I;
+			gl_type = GL_INT;
+			pixel_format = GL_RED_INTEGER;
+			break;
 		default:
-			throw std::runtime_error("Unsupported VTK data type!");
+			throw std::runtime_error("Unsupported VTK data type '" + std::to_string(vtk) + "'");
 	}
 }
 
-Volume::Volume(vtkImageData *vol)
-	: vol_data(vol), transform_dirty(true), translation(0), scaling(1)
+Volume::Volume(vtkImageData *vol, const std::string &array_name)
+	: vol_data(vol), uploaded(false), transform_dirty(true), translation(0), scaling(1)
 {
-	vtk_type_to_gl(vol->GetScalarType(), internal_format, format);
+	vtkFieldData *fields = vol->GetAttributesAsFieldData(vtkDataSet::POINT);
+	int idx = 0;
+	vtk_data = fields->GetArray(array_name.c_str(), idx);
+	if (!vtk_data) {
+		throw std::runtime_error("Nonexistant field '" + array_name + "'");
+	}
+
+	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
 	for (size_t i = 0; i < 3; ++i) {
 		dims[i] = vol->GetDimensions()[i];
 		vol_render_size[i] = vol->GetSpacing()[i];
@@ -134,27 +149,22 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		glUniform1i(glGetUniformLocation(shader, "palette"), 2);
 	}
 	// Upload the volume data, it's changed
-	if (vol_data){
-		/*
-		// TODO: Is there sparse textures for 3d textures? How would it work streaming idx data
-		// up instead of re-calling teximage3d and creating/destroying the texture each time?
-		// Allocate storage space for the texture
-		glTexStorage3D(GL_TEXTURE_3D, 1, internal_format, dims[0], dims[1], dims[2]);
-		// Upload our data
-		glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, dims[0], dims[1], dims[2], GL_RED,
-		format, static_cast<const void*>(data.data()));
-		*/
+	if (!uploaded){
+		uploaded = true;
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
-		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, GL_RED,
-				format, static_cast<const void*>(vol_data->GetScalarPointer()));
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
+				format, vtk_data->GetVoidPointer(0));
+		if (pixel_format == GL_RED_INTEGER) {
+			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		} else {
+			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
-		// We've uploaded the data and don't need a reference any more
-		vol_data = nullptr;
 		// We're changing the volume so also update the volume properties buffer
 		{
 			char *buf = reinterpret_cast<char*>(vol_props.map(GL_UNIFORM_BUFFER, GL_MAP_WRITE_BIT));
@@ -198,34 +208,40 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 }
 void Volume::build_histogram(){
 	// Find scale & bias for the volume data
-	if (internal_format == GL_R32F && format == GL_FLOAT){
-		// Find the min/max values in the volume
-		vol_min = vol_data->GetScalarRange()[0];
-		vol_max = vol_data->GetScalarRange()[1];
-		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
-	}
-
 	// For non f32 or f16 textures GL will normalize for us, given that we've done
 	// the proper range correction above if needed (e.g. for R16)
 	if (internal_format == GL_R8) {
 		std::cout << "Setting gl min max to {0, 1} for R8 data\n";
 		vol_min = 0;
 		vol_max = 1;
+	} else {
+		// Find the min/max values in the volume
+		vol_min = vtk_data->GetRange()[0];
+		vol_max = vtk_data->GetRange()[1];
+		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
 	}
 
 	// Build the histogram for the data
 	histogram.clear();
-	histogram.resize(100, 0);
+	histogram.resize(128, 0);
 	const size_t num_voxels = dims[0] * dims[1] * dims[2];
 	if (format == GL_FLOAT){
-		float *data_ptr = reinterpret_cast<float*>(vol_data->GetScalarPointer());
+		float *data_ptr = reinterpret_cast<float*>(vtk_data->GetVoidPointer(0));
 		for (size_t i = 0; i < num_voxels; ++i){
 			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
 			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
 			++histogram[bin];
 		}
+	} else if (format == GL_INT){
+		int32_t *data_ptr = reinterpret_cast<int32_t*>(vtk_data->GetVoidPointer(0));
+		for (size_t i = 0; i < num_voxels; ++i){
+			size_t bin = static_cast<size_t>(static_cast<float>(data_ptr[i] - vol_min)
+					/ (vol_max - vol_min) * histogram.size());
+			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
+			++histogram[bin];
+		}
 	} else if (format == GL_UNSIGNED_BYTE){
-		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vol_data->GetScalarPointer());
+		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vtk_data->GetVoidPointer(0));
 		for (size_t i = 0; i < num_voxels; ++i){
 			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
 			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);

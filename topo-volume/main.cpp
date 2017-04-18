@@ -52,6 +52,16 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	vtkSmartPointer<vtkContourForests> contourForest
 		= vtkSmartPointer<vtkContourForests>::New();
+	contourForest->SetInputData(reader->GetOutput());
+	contourForest->SetTreeType(ttk::TreeType::Contour);
+	contourForest->SetArcResolution(100);
+	contourForest->SetSkeletonSmoothing(15);
+	contourForest->Update();
+	contourForest->GetOutput(2)->PrintSelf(std::cout, vtkIndent(0));
+	if (dynamic_cast<vtkImageData*>(contourForest->GetOutput(2))) {
+		std::cout << "it's an image data\n";
+		vol = dynamic_cast<vtkImageData*>(contourForest->GetOutput(2));
+	}
 
 	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
 
@@ -80,7 +90,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;
-	Volume volume(vol);
+	Volume volume(vol, "SegmentationId");
+	tfcn.histogram = volume.histogram;
 
 	bool ui_hovered = false;
 	bool quit = false;
