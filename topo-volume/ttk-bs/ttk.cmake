@@ -199,9 +199,6 @@ if(NOT TTK_PKG)
   function(ttk_external_lib project)
     add_library(${project} ${PROJECT_SRC})
     ttk_wrapup_flags(${project})
-    install(
-      TARGETS ${project}
-      DESTINATION ${TTK_BINARY_INSTALL_DIR})
   endfunction(ttk_external_lib)
 
   function(ttk_wrapup_flags project)
