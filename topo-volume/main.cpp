@@ -19,7 +19,6 @@
 #include "glt/buffer_allocator.h"
 
 #include "transfer_function.h"
-#include "external_gl_renderer.h"
 #include "volume.h"
 
 static size_t WIN_WIDTH = 1280;

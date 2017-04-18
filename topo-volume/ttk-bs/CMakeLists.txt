@@ -30,4 +30,5 @@ get_property(PROJECT_INCLUDES DIRECTORY
 
 # Export the includes so the TopoVol app can include TTK
 set(TTK_INCLUDE_DIRS ${PROJECT_INCLUDES} PARENT_SCOPE)
+set(TTK_CMAKE_CXX_FLAGS ${PROJECT_FLAGS} PARENT_SCOPE)
 
