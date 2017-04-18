@@ -90,7 +90,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;
-	Volume volume(vol, "SegmentationId");
+	Volume volume(vol);
 	tfcn.histogram = volume.histogram;
 
 	bool ui_hovered = false;

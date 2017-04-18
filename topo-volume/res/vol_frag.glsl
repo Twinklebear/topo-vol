@@ -2,10 +2,12 @@
 
 #include "vol_global.glsl"
 
-uniform isampler3D volume;
+uniform sampler3D volume;
+uniform isampler3D ivolume;
 uniform sampler1D palette;
 uniform bool isosurface;
 uniform float isovalue;
+uniform bool int_texture;
 
 in vec3 vray_dir;
 flat in vec3 transformed_eye;
@@ -13,7 +15,11 @@ flat in vec3 transformed_eye;
 out vec4 color;
 
 float value(vec3 p) {
-	return scale_bias.x * texture(volume, p).r + scale_bias.y;
+	if (!int_texture) {
+		return scale_bias.x * texture(volume, p).r + scale_bias.y;
+	} else {
+		return scale_bias.x * texture(ivolume, p).r + scale_bias.y;
+	}
 }
 
 vec3 grad(vec3 p, float dt) {

@@ -146,6 +146,8 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		// TODO: how does this interact with having multiple volumes? should we just
 		// have GL4.5 as a hard requirement for DSA? Can I get 4.5 on my laptop?
 		glUniform1i(glGetUniformLocation(shader, "volume"), 1);
+		glUniform1i(glGetUniformLocation(shader, "ivolume"), 1);
+		glUniform1i(glGetUniformLocation(shader, "int_texture"), pixel_format == GL_RED_INTEGER ? 1 : 0);
 		glUniform1i(glGetUniformLocation(shader, "palette"), 2);
 	}
 	// Upload the volume data, it's changed
