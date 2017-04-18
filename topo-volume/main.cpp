@@ -54,7 +54,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	glm::mat4 proj_mat = glm::perspective(glm::radians(65.f),
 			static_cast<float>(WIN_WIDTH) / WIN_HEIGHT, 0.1f, 200.f);
-	glt::ArcBallCamera camera(glm::lookAt(glm::vec3{0.5, 0.5, 2.5}, glm::vec3{0.5, 0.5, 0}, glm::vec3{0, 1, 0}),
+	glt::ArcBallCamera camera(glm::lookAt(glm::vec3{0.0, 0.0, 2.5}, glm::vec3{0.0, 0.0, 0}, glm::vec3{0, 1, 0}),
 			1.0, 75.0, {WIN_WIDTH, WIN_HEIGHT});
 
 	// Note the vec3 is padded to a vec4 size, so we need a bit more room
