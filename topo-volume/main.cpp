@@ -9,6 +9,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkXMLImageDataReader.h>
 #include <vtkImageData.h>
+#include <vtkContourForests.h>
 
 #include "imgui-1.49/imgui.h"
 #include "imgui-1.49/imgui_impl_sdl_gl3.h"
@@ -49,6 +50,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	assert(vol);
 	std::cout << "loaded img '" << args[1] << "'\n";
 	vol->PrintSelf(std::cout, vtkIndent(0));
+
+	vtkSmartPointer<vtkContourForests> contourForest
+		= vtkSmartPointer<vtkContourForests>::New();
 
 	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
 

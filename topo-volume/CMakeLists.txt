@@ -11,14 +11,17 @@ find_package(OpenGL REQUIRED)
 include(${VTK_USE_FILE})
 include_directories(${SDL2_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${GLM_INCLUDE_DIRS})
 
+set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
 add_definitions(-DGLM_FORCE_RADIANS)
 add_subdirectory(imgui-1.49)
 add_subdirectory(glt)
 add_subdirectory(res)
+add_subdirectory(ttk-bs)
+include_directories(${TTK_INCLUDE_DIRS})
 
 add_executable(topo-volume main.cpp external_gl_renderer.cpp
 	volume.cpp transfer_function.cpp)
 set_property(TARGET topo-volume PROPERTY CXX_STANDARD 11)
 target_link_libraries(topo-volume ${VTK_LIBRARIES} ${SDL2_LIBRARY}
-	${OPENGL_LIBRARIES} imgui glt)
+	${OPENGL_LIBRARIES} imgui glt ttk-bs)
 
