@@ -33,6 +33,8 @@ eps/
 *.binary
 *.mp4
 imgui.ini
+build_fsm
+*.vti
 
 
 # ignore my ycm files
