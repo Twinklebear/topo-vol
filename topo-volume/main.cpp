@@ -20,6 +20,7 @@
 
 #include "transfer_function.h"
 #include "volume.h"
+#include "tree_widget.h"
 
 static size_t WIN_WIDTH = 1280;
 static size_t WIN_HEIGHT = 720;
@@ -90,8 +91,21 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;
+	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contourForest->GetOutput(0)),
+			dynamic_cast<vtkPolyData*>(contourForest->GetOutput(1)));
 	Volume volume(vol);
 	tfcn.histogram = volume.histogram;
+
+	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
+	// in this widget and select those segments in the volume rendering.
+	// The volume rendering picking can be done by looking up the same voxel position
+	// in a separate Segmentation ID texture and discarding voxels accordingly.
+	// The tree widget can be done by translating the arcs/points from TTK to a
+	// more abstract representation, take the min/max ImageFile value for each group
+	// of points for a segmentation id and draw the graph with these points connecting to
+	// each other and splitting. The points come in the same order as the arcs,
+	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
+	// Can also check the point locations for the node/arc points to confirm this.
 
 	bool ui_hovered = false;
 	bool quit = false;
@@ -129,23 +143,25 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 		// Draw UI
 		ImGui_ImplSdlGL3_NewFrame(win);
+		glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
 
-		ImGui::Begin("TopoVol");
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-				1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-		ImGui::RadioButton("Volume", &volume_render_mode, 0); ImGui::SameLine();
-		ImGui::RadioButton("Isosurface", &volume_render_mode, 1);
-		if (volume_render_mode == 1) {
-			ImGui::SliderFloat("Isovalue", &current_isovalue, volume.vol_min, volume.vol_max);
-			volume.set_isovalue(current_isovalue);
-			volume.toggle_isosurface(true);
-		} else {
-			volume.toggle_isosurface(false);
+		if (ImGui::Begin("TopoVol")) {
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+					1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+			ImGui::RadioButton("Volume", &volume_render_mode, 0); ImGui::SameLine();
+			ImGui::RadioButton("Isosurface", &volume_render_mode, 1);
+			if (volume_render_mode == 1) {
+				ImGui::SliderFloat("Isovalue", &current_isovalue, volume.vol_min, volume.vol_max);
+				volume.set_isovalue(current_isovalue);
+				volume.toggle_isosurface(true);
+			} else {
+				volume.toggle_isosurface(false);
+			}
 		}
 		ImGui::End();
 
-		glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
 		tfcn.draw_ui();
+		tree_widget.draw_ui();
 
 		ui_hovered = ImGui::IsMouseHoveringAnyWindow();
 		ImGui::Render();
