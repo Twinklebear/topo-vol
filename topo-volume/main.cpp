@@ -53,9 +53,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	vtkSmartPointer<vtkContourForests> contourForest
 		= vtkSmartPointer<vtkContourForests>::New();
 	contourForest->SetInputData(reader->GetOutput());
-	contourForest->SetTreeType(ttk::TreeType::Contour);
-	contourForest->SetArcResolution(100);
-	contourForest->SetSkeletonSmoothing(15);
+	contourForest->SetTreeType(ttk::TreeType::Split);
+	contourForest->SetArcResolution(20);
+	contourForest->SetSkeletonSmoothing(50);
 	contourForest->Update();
 	contourForest->GetOutput(2)->PrintSelf(std::cout, vtkIndent(0));
 	if (dynamic_cast<vtkImageData*>(contourForest->GetOutput(2))) {
