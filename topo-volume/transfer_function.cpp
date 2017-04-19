@@ -60,6 +60,22 @@ TransferFunction::TransferFunction() : active_line(3), fcn_changed(true), palett
 	rgba_lines[1].color = 0xff00ff00;
 	rgba_lines[2].color = 0xffff0000;
 	rgba_lines[3].color = 0xffffffff;
+
+	// Colors similar to ParaView's cool-warm colormap
+	std::vector<glm::vec3> default_colors{
+		glm::vec3(0.231373, 0.298039, 0.752941),
+		glm::vec3(0.865003, 0.865003, 0.865003),
+		glm::vec3(0.705882, 0.0156863, 0.14902)};
+
+	for (size_t i = 0; i < 3; ++i) {
+		rgba_lines[i].line.clear();
+	}
+	const float n_colors = static_cast<float>(default_colors.size()) - 1;
+	for (size_t i = 0; i < default_colors.size(); ++i) {
+		for (size_t j = 0; j < 3; ++j) {
+			rgba_lines[j].line.push_back(glm::vec2(i / n_colors, default_colors[i][j]));
+		}
+	}
 }
 TransferFunction::~TransferFunction(){
 	if (palette_tex[0]){
@@ -203,8 +219,7 @@ void TransferFunction::render(){
 				}
 				assert(lit[j] != rgba_lines[j].line.end());
 				float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-				palette[i * 4 + j] = static_cast<uint8_t>(
-						std::pow(glm::lerp(lit[j]->y, (lit[j] + 1)->y, t), 1.0 / 2.2) * 255.0);
+				palette[i * 4 + j] = static_cast<uint8_t>(glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0);
 			}
 		}
 		for (size_t i = 0; i < samples; ++i){
