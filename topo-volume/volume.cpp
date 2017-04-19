@@ -4,7 +4,7 @@
 #include <limits>
 #include <glm/glm.hpp>
 #include <vtkType.h>
-#include <vtkFieldData.h>
+#include <vtkDataSetAttributes.h>
 #include <vtkDataSet.h>
 #include "glt/util.h"
 #include "volume.h"
@@ -52,7 +52,7 @@ Volume::Volume(vtkImageData *vol, const std::string &array_name)
 	: vol_data(vol), uploaded(false), isovalue(0.f), show_isosurface(false),
 	transform_dirty(true), translation(0), scaling(1)
 {
-	vtkFieldData *fields = vol->GetAttributesAsFieldData(vtkDataSet::POINT);
+	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
 	int idx = 0;
 	vtk_data = fields->GetArray(array_name.c_str(), idx);
 	if (!vtk_data) {
