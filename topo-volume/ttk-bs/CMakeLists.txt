@@ -22,8 +22,11 @@ include(${TTK_DIR}/ttk.cmake)
 # include the different packages required for the application
 ttk_add_vtkWrapper_package(vtkContourForests)
 
-# wrap-up the library
-ttk_add_source(ttk-bs.cpp)
+# This is basically a dummy wrapper lib to hold the ttk libraries
+# because they don't build their code as a proper library and
+# instead do this insane injection of their src files and deps
+# into the using project and force all these crappy cmake wrapper macros
+# on you instead.
 ttk_external_lib(ttk-bs)
 get_property(PROJECT_INCLUDES DIRECTORY 
 	${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)

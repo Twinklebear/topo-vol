@@ -18,7 +18,6 @@ add_subdirectory(glt)
 add_subdirectory(res)
 add_subdirectory(ttk-bs)
 include_directories(${TTK_INCLUDE_DIRS})
-message("got flags ${TTK_CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TTK_CMAKE_CXX_FLAGS} -fopenmp")
 
 add_executable(topo-volume main.cpp volume.cpp transfer_function.cpp tree_widget.cpp)
