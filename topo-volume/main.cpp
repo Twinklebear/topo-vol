@@ -96,6 +96,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	bool ui_hovered = false;
 	bool quit = false;
 	bool camera_updated = false;
+	int volume_render_mode = 0;
+	float current_isovalue = volume.vol_min;
 	while (!quit) {
 		SDL_Event e;
 		while (SDL_PollEvent(&e)){
@@ -127,8 +129,21 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 		// Draw UI
 		ImGui_ImplSdlGL3_NewFrame(win);
+
+		ImGui::Begin("TopoVol");
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
 				1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+		ImGui::RadioButton("Volume", &volume_render_mode, 0); ImGui::SameLine();
+		ImGui::RadioButton("Isosurface", &volume_render_mode, 1);
+		if (volume_render_mode == 1) {
+			ImGui::SliderFloat("Isovalue", &current_isovalue, volume.vol_min, volume.vol_max);
+			volume.set_isovalue(current_isovalue);
+			volume.toggle_isosurface(true);
+		} else {
+			volume.toggle_isosurface(false);
+		}
+		ImGui::End();
+
 		glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
 		tfcn.draw_ui();
 

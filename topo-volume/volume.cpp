@@ -49,7 +49,8 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 }
 
 Volume::Volume(vtkImageData *vol, const std::string &array_name)
-	: vol_data(vol), uploaded(false), transform_dirty(true), translation(0), scaling(1)
+	: vol_data(vol), uploaded(false), isovalue(0.f), show_isosurface(false),
+	transform_dirty(true), translation(0), scaling(1)
 {
 	vtkFieldData *fields = vol->GetAttributesAsFieldData(vtkDataSet::POINT);
 	int idx = 0;
@@ -149,6 +150,8 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		glUniform1i(glGetUniformLocation(shader, "ivolume"), 1);
 		glUniform1i(glGetUniformLocation(shader, "int_texture"), pixel_format == GL_RED_INTEGER ? 1 : 0);
 		glUniform1i(glGetUniformLocation(shader, "palette"), 2);
+		isovalue_unif = glGetUniformLocation(shader, "isovalue");
+		isosurface_unif = glGetUniformLocation(shader, "isosurface");
 	}
 	// Upload the volume data, it's changed
 	if (!uploaded){
@@ -202,11 +205,21 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D, texture);
 	glUseProgram(shader);
+
+	glUniform1f(isovalue_unif, isovalue);
+	glUniform1i(isosurface_unif, show_isosurface ? 1 : 0);
+
 	glBindVertexArray(vao);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, CUBE_STRIP.size() / 3);
 
 	glCullFace(GL_BACK);
 	glDisable(GL_CULL_FACE);
+}
+void Volume::set_isovalue(float i) {
+	isovalue = i;
+}
+void Volume::toggle_isosurface(bool on) {
+	show_isosurface = on;
 }
 void Volume::build_histogram(){
 	// Find scale & bias for the volume data

@@ -30,6 +30,9 @@ class Volume {
 
 	// GL stuff
 	GLuint shader, vao, texture;
+	GLuint isovalue_unif, isosurface_unif;
+	float isovalue;
+	bool show_isosurface;
 	std::shared_ptr<glt::BufferAllocator> allocator;
 	glt::SubBuffer cube_buf, vol_props;
 	bool transform_dirty;
@@ -65,6 +68,8 @@ public:
 	 * if this is the first time the data is being rendered.
 	 */
 	void render(std::shared_ptr<glt::BufferAllocator> &buf_allocator);
+	void set_isovalue(float isovalue);
+	void toggle_isosurface(bool on);
 
 private:
 	// Find the min/max of the data and build the histogram
