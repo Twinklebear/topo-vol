@@ -43,7 +43,7 @@ int main(int argc, const char **argv) {
 void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// Read the volume data using vtk
 	vtkSmartPointer<vtkXMLImageDataReader> reader
-		= vtkSmartPointer<vtkXMLImageDataReader>::New(); 
+		= vtkSmartPointer<vtkXMLImageDataReader>::New();
 	reader->SetFileName(args[1].c_str());
 	reader->Update();
 	vtkImageData *vol = reader->GetOutput();
@@ -57,6 +57,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contourForest->SetTreeType(ttk::TreeType::Split);
 	contourForest->SetArcResolution(20);
 	contourForest->SetSkeletonSmoothing(50);
+
 	contourForest->Update();
 	contourForest->GetOutput(2)->PrintSelf(std::cout, vtkIndent(0));
 	if (dynamic_cast<vtkImageData*>(contourForest->GetOutput(2))) {
@@ -93,7 +94,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	TransferFunction tfcn;
 	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contourForest->GetOutput(0)),
 			dynamic_cast<vtkPolyData*>(contourForest->GetOutput(1)));
-	Volume volume(vol);
+	Volume volume(vol, "SegmentationId");
 	tfcn.histogram = volume.histogram;
 
 	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches

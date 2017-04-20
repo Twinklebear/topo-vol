@@ -92,13 +92,6 @@ void TransferFunction::draw_ui(){
 
 		glm::vec2 canvas_pos(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
 		glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
-		// Force some min size of the editor
-		if (canvas_size.x < 50.f){
-			canvas_size.x = 50.f;
-		}
-		if (canvas_size.y < 50.f){
-			canvas_size.y = 50.f;
-		}
 
 		if (palette_tex[0]){
 			ImGui::Image(reinterpret_cast<void*>(palette_tex[1]), ImVec2(canvas_size.x, 16));
