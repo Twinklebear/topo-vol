@@ -39,31 +39,11 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 {
 	assert(tree_arcs);
 	assert(tree_nodes);
-	//std::cout << "\n----------\n\nArcs:\n";
-	//tree_arcs->PrintSelf(std::cout, vtkIndent(0));
-	//std::cout << "\n----------\n\nNodes:\n";
-	//tree_nodes->PrintSelf(std::cout, vtkIndent(0));
 	vtkDataSetAttributes *point_attribs = tree_arcs->GetAttributes(vtkDataSet::POINT);
-	std::cout << "Point attribs:\n";
-	point_attribs->PrintSelf(std::cout, vtkIndent(2));
 	vtkPoints *points = tree_arcs->GetPoints();
 	assert(points);
-	std::cout << "# of points = " << points->GetNumberOfPoints() << "\n";
-	{
-		int idx = 0;
-		vtkDataArray *arr = point_attribs->GetArray("ImageFile", idx);
-		for (size_t p = 0; p < 10; ++p) {
-			double pt_pos[3];
-			points->GetPoint(p, pt_pos);
-			std::cout << "Point " << p << " is at { " << pt_pos[0] << ", " << pt_pos[1]
-				<< ", " << pt_pos[2] << " } image file attrib = " << arr->GetTuple(p)[0]
-				<< std::endl;
-		}
-	}
 
 	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
-	std::cout << "\nCell attribs:\n";
-	cell_attribs->PrintSelf(std::cout, vtkIndent(2));
 	vtkCellArray *lines = tree_arcs->GetLines();
 	assert(lines);
 	// TODO: Build the branch structure which we can then draw. Ignore most
@@ -123,7 +103,7 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 				b.exiting_branches.push_back(i);
 			}
 		}
-		std::cout << b << "\n";
+		//std::cout << b << "\n";
 	}
 
 	// Setup the display data
@@ -229,7 +209,7 @@ void TreeWidget::build_ui_tree() {
 		// Look and see if a point for our start point has been made already by the branches
 		// entering us
 		size_t start_pt = display_tree.points.size();
-#if 0
+#if 1
 		// TODO: Fix the shared vertex finding
 		for (const auto &x : b.entering_branches) {
 			auto fnd = display_tree.branches.find(x);
@@ -244,7 +224,7 @@ void TreeWidget::build_ui_tree() {
 		}
 
 		display_tree.branches[b.segmentation_id].start = start_pt;
-#if 0
+#if 1
 		for (const auto &x : b.entering_branches) {
 			display_tree.branches[x].end = start_pt;
 		}
@@ -254,7 +234,7 @@ void TreeWidget::build_ui_tree() {
 		// Look and see if a point for our end point has been made already by the branches
 		// exiting us
 		size_t end_pt = display_tree.points.size();
-#if 0
+#if 1
 		for (const auto &x : b.exiting_branches) {
 			auto fnd = display_tree.branches.find(x);
 			if (fnd != display_tree.branches.end()) {
@@ -268,7 +248,7 @@ void TreeWidget::build_ui_tree() {
 		}
 
 		display_tree.branches[b.segmentation_id].end = end_pt;
-#if 0
+#if 1
 		for (const auto &x : b.exiting_branches) {
 			display_tree.branches[x].start = end_pt;
 		}

@@ -94,7 +94,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	TransferFunction tfcn;
 	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contourForest->GetOutput(0)),
 			dynamic_cast<vtkPolyData*>(contourForest->GetOutput(1)));
-	Volume volume(vol, "SegmentationId");
+	Volume volume(vol, "ImageFile");
 	tfcn.histogram = volume.histogram;
 
 	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
