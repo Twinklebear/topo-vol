@@ -128,6 +128,11 @@ void TreeWidget::draw_ui() {
 	}
 
 	ImGui::Text("Contour/Split/Merge Tree");
+	ImGui::Text("Left click to select branch, Ctrl-click to select multiple");
+	if (ImGui::Button("Clear Selection")) {
+		selected_segmentations.clear();
+	}
+
 	ImGui::SliderFloat("Zoom Tree", &zoom_amount, 1.0f, 35.f);
 
 	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y * zoom_amount);
@@ -147,8 +152,17 @@ void TreeWidget::draw_ui() {
 		const glm::vec2 end = display_tree.points[b.second.end] * view_scale + view_offset;
 		if (point_on_line(start, end, mouse_pos)) {
 			if (ImGui::IsMouseClicked(0)) {
-				selected_segmentations.clear();
-				selected_segmentations.push_back(b.first);
+				const bool was_selected = std::find(selected_segmentations.begin(), selected_segmentations.end(),
+						b.first) != selected_segmentations.end();
+				if (!ImGui::GetIO().KeyCtrl) {
+					selected_segmentations.clear();
+				}
+				auto fnd = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.first);
+				if (fnd != selected_segmentations.end()) {
+					selected_segmentations.erase(fnd);
+				} else if (!was_selected) {
+					selected_segmentations.push_back(b.first);
+				}
 			}
 
 			std::string incident_list, exiting_list;
@@ -167,17 +181,18 @@ void TreeWidget::draw_ui() {
 		uint32_t color = 0xff1fefef;
 		if (!selected_segmentations.empty()) {
 			color = 0x4f1fefef;
-			if (b.first == selected_segmentations[0]) {
+			auto fnd = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.first);
+			if (fnd != selected_segmentations.end()) {
 				color = 0xffffffff;
 			} else {
-				auto fnd = std::find(seg_branch.entering_branches.begin(), seg_branch.entering_branches.end(),
-						selected_segmentations[0]);
+				auto fnd = std::find_first_of(seg_branch.entering_branches.begin(), seg_branch.entering_branches.end(),
+						selected_segmentations.begin(), selected_segmentations.end());
 				if (fnd != seg_branch.entering_branches.end()) {
 					color = 0xffff0000;
 				}
 
-				fnd = std::find(seg_branch.exiting_branches.begin(), seg_branch.exiting_branches.end(),
-						selected_segmentations[0]);
+				fnd = std::find_first_of(seg_branch.exiting_branches.begin(), seg_branch.exiting_branches.end(),
+						selected_segmentations.begin(), selected_segmentations.end());
 				if (fnd != seg_branch.exiting_branches.end()) {
 					color = 0xff0000ff;
 				}

@@ -97,7 +97,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	Volume volume(vol, "ImageFile");
 	tfcn.histogram = volume.histogram;
 
-	int segment_selection = -1;
 	int max_segment_id = 0;
 	{
 		vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
@@ -136,6 +135,12 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 			if (!ui_hovered) {
 				camera_updated |= camera.sdl_input(e, 1000.f / ImGui::GetIO().Framerate);
 			}
+			if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+				WIN_WIDTH = e.window.data1;
+				WIN_HEIGHT = e.window.data2;
+				camera.update_screen(WIN_WIDTH, WIN_HEIGHT);
+				camera_updated = true;
+			}
 		}
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if (camera_updated) {
@@ -169,17 +174,19 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 			} else {
 				volume.toggle_isosurface(false);
 			}
-
-			if (ImGui::SliderInt("Segmentation", &segment_selection, -1, max_segment_id)) {
-				for (size_t i = 0; i < max_segment_id + 1; ++i) {
-					volume.set_segment_selected(i, segment_selection == -1 || i == segment_selection);
-				}
-			}
 		}
 		ImGui::End();
 
 		tfcn.draw_ui();
 		tree_widget.draw_ui();
+
+		const auto &tree_selection = tree_widget.get_selection();
+		for (size_t i = 0; i < max_segment_id + 1; ++i) {
+			volume.set_segment_selected(i, tree_selection.empty());
+		}
+		for (const auto &x : tree_selection) {
+			volume.set_segment_selected(x, true);
+		}
 
 		ui_hovered = ImGui::IsMouseHoveringAnyWindow();
 		ImGui::Render();
@@ -205,7 +212,7 @@ void setup_window(SDL_Window *&win, SDL_GLContext &ctx) {
 #endif
 
 	win = SDL_CreateWindow("Topology Guided Volume Exploration", SDL_WINDOWPOS_CENTERED,
-			SDL_WINDOWPOS_CENTERED, WIN_WIDTH, WIN_HEIGHT, SDL_WINDOW_OPENGL);
+			SDL_WINDOWPOS_CENTERED, WIN_WIDTH, WIN_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	if (!win){
 		const std::string err = std::string("Failed to open SDL window: ") + SDL_GetError();
 		throw std::runtime_error(err);
