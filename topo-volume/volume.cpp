@@ -162,8 +162,41 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		uploaded = true;
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
-		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
-				format, vtk_data->GetVoidPointer(0));
+		// VTK may have not exported the image in the right row-major ordering so make sure
+		// the pixels are in the right order here.
+		{
+#if 0
+			// TODO: Doesn't work re-ordering the data this way but code seems right??
+			const size_t dtype_size = vtk_data->GetDataTypeSize();
+			std::vector<uint8_t> img_bytes(dims[0] * dims[1] * dims[2] * dtype_size, 0);
+			std::cout << "# bytes in img " << img_bytes.size() << "\n";
+			std::cout << "dtype size = " << dtype_size << "\n";
+			for (size_t z = 0; z < dims[2]; ++z) {
+				for (size_t y = 0; y < dims[1]; ++y) {
+					for (size_t x = 0; x < dims[0]; ++x) {
+						const size_t i = x + dims[0] * (y + dims[1] * z);
+						const uint8_t *byte_data = static_cast<const uint8_t*>(vtk_data->GetVoidPointer(i));
+						for (size_t b = 0; b < dtype_size; ++b) {
+							img_bytes[i * dtype_size + b] = byte_data[b];
+						}
+					}
+				}
+			}
+			glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
+					format, img_bytes.data());
+#else
+			glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
+					format, NULL);
+			for (size_t z = 0; z < dims[2]; ++z) {
+				for (size_t y = 0; y < dims[1]; ++y) {
+					for (size_t x = 0; x < dims[0]; ++x) {
+						glTexSubImage3D(GL_TEXTURE_3D, 0, x, y, z, 1, 1, 1, pixel_format,
+								format, static_cast<void*>(vtk_data->GetVoidPointer(x + dims[0] * (y + dims[1] * z))));
+					}
+				}
+			}
+#endif
+		}
 		if (pixel_format == GL_RED_INTEGER) {
 			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -261,8 +294,10 @@ void Volume::build_histogram(){
 		}
 	} else if (format == GL_UNSIGNED_BYTE){
 		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vtk_data->GetVoidPointer(0));
+		const float data_min = vtk_data->GetRange()[0];
+		const float data_max = vtk_data->GetRange()[1];
 		for (size_t i = 0; i < num_voxels; ++i){
-			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
+			size_t bin = static_cast<size_t>((data_ptr[i] - data_min) / (data_max - data_min) * histogram.size());
 			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
 			++histogram[bin];
 		}
