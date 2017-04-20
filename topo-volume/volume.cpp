@@ -79,6 +79,7 @@ Volume::~Volume(){
 		allocator->free(vol_props);
 		glDeleteVertexArrays(1, &vao);
 		glDeleteTextures(1, &texture);
+		glDeleteTextures(1, &seg_texture);
 		glDeleteProgram(shader);
 	}
 }
@@ -120,20 +121,21 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)cube_buf.offset);
 
-		vol_props = buf_allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec2),
+		vol_props = buf_allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4) + 2 * sizeof(glm::vec2),
 			glt::BufAlignment::UNIFORM_BUFFER);
 		{
 			char *buf = reinterpret_cast<char*>(vol_props.map(GL_UNIFORM_BUFFER,
 						GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT));
 			glm::mat4 *mats = reinterpret_cast<glm::mat4*>(buf);
 			glm::vec4 *vecs = reinterpret_cast<glm::vec4*>(buf + 2 * sizeof(glm::mat4));
-			glm::vec2 *scale_bias = reinterpret_cast<glm::vec2*>(buf + 2 * sizeof(glm::mat4) + sizeof(glm::vec4));
+			glm::vec2 *vec2s = reinterpret_cast<glm::vec2*>(buf + 2 * sizeof(glm::mat4) + sizeof(glm::vec4));
 			mats[0] = vol_transform;
 			mats[1] = glm::inverse(mats[0]);
 			vecs[0] = glm::vec4{static_cast<float>(dims[0]), static_cast<float>(dims[1]),
 				static_cast<float>(dims[2]), 0};
 			// Set scaling and bias to scale the volume values
-			*scale_bias = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
+			vec2s[0] = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
+			vec2s[1] = glm::vec2{0, 1};
 
 			// TODO: Again how will this interact with multiple folks doing this?
 			glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
@@ -142,16 +144,17 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		}
 
 		glGenTextures(1, &texture);
+		glGenTextures(1, &seg_texture);
 
 		// TODO: If drawing multiple volumes they can all share the same program
 		const std::string resource_path = glt::get_resource_path();
 		shader = glt::load_program({std::make_pair(GL_VERTEX_SHADER, resource_path + "vol_vert.glsl"),
 				std::make_pair(GL_FRAGMENT_SHADER, resource_path + "vol_frag.glsl")});
 		glUseProgram(shader);
-		// TODO: how does this interact with having multiple volumes? should we just
-		// have GL4.5 as a hard requirement for DSA? Can I get 4.5 on my laptop?
+
 		glUniform1i(glGetUniformLocation(shader, "volume"), 1);
 		glUniform1i(glGetUniformLocation(shader, "ivolume"), 1);
+		glUniform1i(glGetUniformLocation(shader, "segmentation_volume"), 3);
 		glUniform1i(glGetUniformLocation(shader, "int_texture"), pixel_format == GL_RED_INTEGER ? 1 : 0);
 		glUniform1i(glGetUniformLocation(shader, "palette"), 2);
 		isovalue_unif = glGetUniformLocation(shader, "isovalue");
@@ -162,64 +165,41 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		uploaded = true;
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
-		// VTK may have not exported the image in the right row-major ordering so make sure
-		// the pixels are in the right order here.
-		{
-#if 0
-			// TODO: Doesn't work re-ordering the data this way but code seems right??
-			const size_t dtype_size = vtk_data->GetDataTypeSize();
-			std::vector<uint8_t> img_bytes(dims[0] * dims[1] * dims[2] * dtype_size, 0);
-			std::cout << "# bytes in img " << img_bytes.size() << "\n";
-			std::cout << "dtype size = " << dtype_size << "\n";
-			for (size_t z = 0; z < dims[2]; ++z) {
-				for (size_t y = 0; y < dims[1]; ++y) {
-					for (size_t x = 0; x < dims[0]; ++x) {
-						const size_t i = x + dims[0] * (y + dims[1] * z);
-						const uint8_t *byte_data = static_cast<const uint8_t*>(vtk_data->GetVoidPointer(i));
-						for (size_t b = 0; b < dtype_size; ++b) {
-							img_bytes[i * dtype_size + b] = byte_data[b];
-						}
-					}
-				}
-			}
-			glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
-					format, img_bytes.data());
-#else
-			glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
-					format, NULL);
-			for (size_t z = 0; z < dims[2]; ++z) {
-				for (size_t y = 0; y < dims[1]; ++y) {
-					for (size_t x = 0; x < dims[0]; ++x) {
-						glTexSubImage3D(GL_TEXTURE_3D, 0, x, y, z, 1, 1, 1, pixel_format,
-								format, static_cast<void*>(vtk_data->GetVoidPointer(x + dims[0] * (y + dims[1] * z))));
-					}
-				}
-			}
-#endif
-		}
-		if (pixel_format == GL_RED_INTEGER) {
-			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		upload_volume(vtk_data);
+
+		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
+		int idx = 0;
+		vtkDataArray *seg_data = fields->GetArray("SegmentationId", idx);
+		if (seg_data) {
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_3D, seg_texture);
+			upload_volume(seg_data);
+			glUseProgram(shader);
+			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 1);
+			std::cout << "has segmentation volume\n";
 		} else {
-			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glUseProgram(shader);
+			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 0);
 		}
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
 		// We're changing the volume so also update the volume properties buffer
 		{
 			char *buf = reinterpret_cast<char*>(vol_props.map(GL_UNIFORM_BUFFER, GL_MAP_WRITE_BIT));
 			glm::mat4 *mats = reinterpret_cast<glm::mat4*>(buf);
 			glm::vec4 *vecs = reinterpret_cast<glm::vec4*>(buf + 2 * sizeof(glm::mat4));
-			glm::vec2 *scale_bias = reinterpret_cast<glm::vec2*>(buf + 2 * sizeof(glm::mat4) + sizeof(glm::vec4));
+			glm::vec2 *vec2s = reinterpret_cast<glm::vec2*>(buf + 2 * sizeof(glm::mat4) + sizeof(glm::vec4));
 			mats[0] = vol_transform;
 			mats[1] = glm::inverse(mats[0]);
 			vecs[0] = glm::vec4{ static_cast<float>(dims[0]), static_cast<float>(dims[1]),
 				static_cast<float>(dims[2]), 0 };
 
 			// Set scaling and bias to scale the volume values
-			*scale_bias = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
+			vec2s[0] = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
+			if (seg_data) {
+				const float seg_min = seg_data->GetRange()[0];
+				const float seg_max = seg_data->GetRange()[1];
+				vec2s[1] = glm::vec2(1.0 / (seg_max - seg_min), -seg_min);
+			}
 
 			vol_props.unmap(GL_UNIFORM_BUFFER);
 			transform_dirty = false;
@@ -241,6 +221,9 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D, texture);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_3D, seg_texture);
+
 	glUseProgram(shader);
 
 	glUniform1f(isovalue_unif, isovalue);
@@ -302,5 +285,54 @@ void Volume::build_histogram(){
 			++histogram[bin];
 		}
 	}
+}
+void Volume::upload_volume(vtkDataArray *data) {
+	GLenum internal_fmt, data_fmt, px_fmt;
+	vtk_type_to_gl(data->GetDataType(), internal_fmt, data_fmt, px_fmt);
+	// VTK may have not exported the image in the right row-major ordering so make sure
+	// the pixels are in the right order here.
+	{
+#if 0
+		// TODO: Doesn't work re-ordering the data this way but code seems right??
+		const size_t dtype_size = vtk_data->GetDataTypeSize();
+		std::vector<uint8_t> img_bytes(dims[0] * dims[1] * dims[2] * dtype_size, 0);
+		std::cout << "# bytes in img " << img_bytes.size() << "\n";
+		std::cout << "dtype size = " << dtype_size << "\n";
+		for (size_t z = 0; z < dims[2]; ++z) {
+			for (size_t y = 0; y < dims[1]; ++y) {
+				for (size_t x = 0; x < dims[0]; ++x) {
+					const size_t i = x + dims[0] * (y + dims[1] * z);
+					const uint8_t *byte_data = static_cast<const uint8_t*>(vtk_data->GetVoidPointer(i));
+					for (size_t b = 0; b < dtype_size; ++b) {
+						img_bytes[i * dtype_size + b] = byte_data[b];
+					}
+				}
+			}
+		}
+		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
+				format, img_bytes.data());
+#else
+		glTexImage3D(GL_TEXTURE_3D, 0, internal_fmt, dims[0], dims[1], dims[2], 0, px_fmt,
+				data_fmt, NULL);
+		for (size_t z = 0; z < dims[2]; ++z) {
+			for (size_t y = 0; y < dims[1]; ++y) {
+				for (size_t x = 0; x < dims[0]; ++x) {
+					glTexSubImage3D(GL_TEXTURE_3D, 0, x, y, z, 1, 1, 1, px_fmt,
+							data_fmt, static_cast<void*>(data->GetVoidPointer(x + dims[0] * (y + dims[1] * z))));
+				}
+			}
+		}
+#endif
+	}
+	if (px_fmt == GL_RED_INTEGER) {
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	} else {
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
 }
 

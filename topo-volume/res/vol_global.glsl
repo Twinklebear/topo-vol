@@ -7,5 +7,6 @@ layout(std140, binding = 1) uniform VolProps {
 	// Scale and bias to transform the volume values from
 	// [vol_min, vol_max] to [0, 1] for reading from the palette
 	vec2 scale_bias;
+	vec2 segmentation_range;
 };
 

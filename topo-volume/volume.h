@@ -29,7 +29,7 @@ class Volume {
 	bool uploaded;
 
 	// GL stuff
-	GLuint shader, vao, texture;
+	GLuint shader, vao, texture, seg_texture;
 	GLuint isovalue_unif, isosurface_unif;
 	float isovalue;
 	bool show_isosurface;
@@ -74,5 +74,8 @@ public:
 private:
 	// Find the min/max of the data and build the histogram
 	void build_histogram();
+	// Upload the vtk data passed, dims are assumed to be the same but the
+	// data type can differ
+	void upload_volume(vtkDataArray *data);
 };
 
