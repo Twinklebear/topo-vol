@@ -97,6 +97,17 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	Volume volume(vol, "ImageFile");
 	tfcn.histogram = volume.histogram;
 
+	int segment_selection = -1;
+	int max_segment_id = 0;
+	{
+		vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
+		int idx = 0;
+		vtkDataArray *seg_data = fields->GetArray("SegmentationId", idx);
+		if (seg_data) {
+			max_segment_id = seg_data->GetRange()[1];
+		}
+	}
+
 	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
 	// in this widget and select those segments in the volume rendering.
 	// The volume rendering picking can be done by looking up the same voxel position
@@ -157,6 +168,12 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 				volume.toggle_isosurface(true);
 			} else {
 				volume.toggle_isosurface(false);
+			}
+
+			if (ImGui::SliderInt("Segmentation", &segment_selection, -1, max_segment_id)) {
+				for (size_t i = 0; i < max_segment_id + 1; ++i) {
+					volume.set_segment_selected(i, segment_selection == -1 || i == segment_selection);
+				}
 			}
 		}
 		ImGui::End();

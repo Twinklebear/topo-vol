@@ -121,7 +121,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)cube_buf.offset);
 
-		vol_props = buf_allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4) + 2 * sizeof(glm::vec2),
+		vol_props = buf_allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec2),
 			glt::BufAlignment::UNIFORM_BUFFER);
 		{
 			char *buf = reinterpret_cast<char*>(vol_props.map(GL_UNIFORM_BUFFER,
@@ -135,7 +135,6 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 				static_cast<float>(dims[2]), 0};
 			// Set scaling and bias to scale the volume values
 			vec2s[0] = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
-			vec2s[1] = glm::vec2{0, 1};
 
 			// TODO: Again how will this interact with multiple folks doing this?
 			glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
@@ -177,6 +176,19 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 			glUseProgram(shader);
 			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 1);
 			std::cout << "has segmentation volume\n";
+			const int num_segments = seg_data->GetRange()[1] + 1;
+			segmentation_buf = allocator->alloc((num_segments + 1) * sizeof(int), glt::BufAlignment::SHADER_STORAGE_BUFFER);
+			{
+				int *buf = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT));
+				buf[0] = num_segments;
+				segmentation_selections.resize(num_segments, 1);
+				int *s = buf + 1;
+				for (const auto &x : segmentation_selections) {
+					*s = x;
+					++s;
+				}
+				segmentation_buf.unmap(GL_SHADER_STORAGE_BUFFER);
+			}
 		} else {
 			glUseProgram(shader);
 			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 0);
@@ -192,14 +204,8 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 			mats[1] = glm::inverse(mats[0]);
 			vecs[0] = glm::vec4{ static_cast<float>(dims[0]), static_cast<float>(dims[1]),
 				static_cast<float>(dims[2]), 0 };
-
 			// Set scaling and bias to scale the volume values
 			vec2s[0] = glm::vec2{1.f / (vol_max - vol_min), -vol_min};
-			if (seg_data) {
-				const float seg_min = seg_data->GetRange()[0];
-				const float seg_max = seg_data->GetRange()[1];
-				vec2s[1] = glm::vec2(1.0 / (seg_max - seg_min), -seg_min);
-			}
 
 			vol_props.unmap(GL_UNIFORM_BUFFER);
 			transform_dirty = false;
@@ -219,6 +225,17 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
+	if (segmentation_buf.size != 0) {
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, segmentation_buf.buffer);
+		int *s = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT)) + 1;
+		for (const auto &x : segmentation_selections) {
+			*s = x;
+			++s;
+		}
+		segmentation_buf.unmap(GL_SHADER_STORAGE_BUFFER);
+		glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, segmentation_buf.buffer,
+				segmentation_buf.offset, segmentation_buf.size);
+	}
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D, texture);
 	glActiveTexture(GL_TEXTURE3);
@@ -240,6 +257,9 @@ void Volume::set_isovalue(float i) {
 }
 void Volume::toggle_isosurface(bool on) {
 	show_isosurface = on;
+}
+void Volume::set_segment_selected(int segment, bool select) {
+	segmentation_selections[segment] = select ? 1 : 0;
 }
 void Volume::build_histogram(){
 	// Find scale & bias for the volume data

@@ -17,11 +17,12 @@ flat in vec3 transformed_eye;
 
 out vec4 color;
 
-int segment_val(vec3 p) {
+bool segment_selected(vec3 p) {
 	if (has_segmentation_volume) {
-		return texture(segmentation_volume, p).r;
+		const int segment = texture(segmentation_volume, p).r;
+		return segment_selections[segment] != 0;
 	}
-	return 0;
+	return true;
 }
 
 float value(vec3 p) {
@@ -61,12 +62,10 @@ void main(void){
 	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z)) * 0.05;
 	vec3 p = transformed_eye + tenter * ray_dir;
 
-	int chosen_segment = 60;
-
 	float prev;
 	vec3 p_prev;
 	for (float t = tenter; t < texit; t += dt){
-		if (segment_val(p) == chosen_segment) {
+		if (segment_selected(p)) {
 			float palette_sample = value(p);
 			if (isosurface){
 				if (t != tenter && prev < isovalue && palette_sample > isovalue){

@@ -34,12 +34,13 @@ class Volume {
 	float isovalue;
 	bool show_isosurface;
 	std::shared_ptr<glt::BufferAllocator> allocator;
-	glt::SubBuffer cube_buf, vol_props;
+	glt::SubBuffer cube_buf, vol_props, segmentation_buf;
 	bool transform_dirty;
 	// Base transformation matrix, e.g. the IDX logical to physical transform
 	glm::mat4 base_matrix;
 	glm::vec3 translation, scaling, vol_render_size;
 	glm::quat rotation;
+	std::vector<int> segmentation_selections;
 
 public:
 	// TODO: make private, public only temporarily Min and max values in the data set
@@ -70,6 +71,7 @@ public:
 	void render(std::shared_ptr<glt::BufferAllocator> &buf_allocator);
 	void set_isovalue(float isovalue);
 	void toggle_isosurface(bool on);
+	void set_segment_selected(int segment, bool select);
 
 private:
 	// Find the min/max of the data and build the histogram
