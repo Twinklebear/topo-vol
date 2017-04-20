@@ -35,8 +35,38 @@ std::ostream& operator<<(std::ostream &os, const Branch &b) {
 	return os;
 }
 
+glm::vec2 TreeNode::get_input_slot_pos(const size_t segment) const {
+	auto fnd = std::find(entering_branches.begin(), entering_branches.end(), segment);
+	assert(fnd != entering_branches.end());
+	const size_t slot = std::distance(fnd, entering_branches.begin());
+	return glm::vec2(ui_pos.x, ui_pos.y + ui_size.y * static_cast<float>(slot + 1) / (entering_branches.size() + 1));
+}
+glm::vec2 TreeNode::get_output_slot_pos(const size_t segment) const {
+	auto fnd = std::find(exiting_branches.begin(), exiting_branches.end(), segment);
+	assert(fnd != exiting_branches.end());
+	const size_t slot = std::distance(fnd, exiting_branches.begin());
+	return glm::vec2(ui_pos.x + ui_size.x,
+			ui_pos.y + ui_size.y * static_cast<float>(slot + 1) / (exiting_branches.size() + 1));
+}
+std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
+	os << "TreeNode {\n\ttype: " << n.type
+		<< "\n\tpos: " << glm::to_string(n.pos)
+		<< "\n\tval: " << n.value;
+
+	os << "\n\tentering: [";
+	for (const auto &x : n.entering_branches) {
+		os << x << ", ";
+	}
+	os << "]\n\texiting: [";
+	for (const auto &x : n.exiting_branches) {
+		os << x << ", ";
+	}
+	os << "]\n}";
+	return os;
+}
+
 TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
-	: tree_arcs(arcs), tree_nodes(nodes), zoom_amount(1.0)
+	: tree_arcs(arcs), tree_nodes(nodes), zoom_amount(1.0), scrolling(0.f)
 {
 	assert(tree_arcs);
 	assert(tree_nodes);
@@ -86,9 +116,42 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 		}
 		current_branch.end = end_pos;
 		current_branch.end_val = end_val;
+		current_branch.start_node = -1;
+		current_branch.end_node = -1;
 	}
 	// Push on the last segmentation
 	branches[current_branch.segmentation_id] = current_branch;
+
+	// Build the list of nodes and their connections in the tree
+	vtkPoints *node_points = tree_nodes->GetPoints();
+	vtkDataSetAttributes *node_attribs = tree_nodes->GetAttributes(vtkDataSet::POINT);
+	std::unordered_map<float, size_t> node_val_count;
+	const glm::vec2 node_dims(110, 60);
+	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
+		int idx = 0;
+		TreeNode n;
+		double pt_pos[3];
+		node_points->GetPoint(i, pt_pos);
+		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
+		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
+		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
+		n.ui_pos = glm::vec2(n.value * (node_dims.x + 8), node_val_count[n.value] * (node_dims.y + 8));
+		n.ui_size = node_dims;
+
+		node_val_count[n.value]++;
+
+		for (auto &b : branches) {
+			if (b.start == n.pos) {
+				n.exiting_branches.push_back(b.segmentation_id);
+				b.start_node = i;
+			} else if (b.end == n.pos) {
+				n.entering_branches.push_back(b.segmentation_id);
+				b.end_node = i;
+			}
+		}
+		std::cout << n << "\n";
+		this->nodes.push_back(n);
+	}
 
 	// TODO: Go through all start/end points and find entering/exiting branches to build connectivity
 	for (auto &b : branches) {
@@ -108,7 +171,7 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 	}
 
 	// Setup the display data
-	build_ui_tree();
+	//build_ui_tree();
 }
 bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2 &point) {
 	if (point.x < std::min(start.x, end.x) - 2 || point.x > std::max(start.x, end.x) + 2
@@ -121,6 +184,84 @@ bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2
 	// Measurements are in pixels
 	return d < 2;
 }
+void TreeWidget::draw_ui() {
+	if (!ImGui::Begin("Tree Widget")) {
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Contour/Split/Merge Tree");
+	if (ImGui::Button("Clear Selection")) {
+		selected_segmentations.clear();
+	}
+
+	// This is based on the material editor node-link diagram from
+	// https://gist.github.com/ocornut/7e9b3ec566a333d725d4
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2(0));
+	ImGui::PushStyleColor(ImGuiCol_ChildWindowBg, ImColor(60, 60, 70, 200));
+	ImGui::BeginChild("tree_region", glm::vec2(0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+	ImGui::PushItemWidth(120.f);
+
+	const glm::vec2 offset = glm::vec2(ImGui::GetCursorScreenPos()) - scrolling;
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->ChannelsSplit(2);
+
+	// Display the graph links, in background
+	draw_list->ChannelsSetCurrent(0);
+	for (const auto &b : branches) {
+		if (b.start_node >= nodes.size() || b.end_node >= nodes.size()) {
+			std::cout << "WARNING: branch missing start or end pt!?\n";
+			continue;
+		}
+		const TreeNode &start = nodes[b.start_node];
+		const TreeNode &end = nodes[b.end_node];
+		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
+		const glm::vec2 p2 = offset + end.get_input_slot_pos(b.segmentation_id);
+		draw_list->AddLine(p1, p2, ImColor(255 * 0.8f, 255 * 0.8f, 255 * 0.1f));
+	}
+
+	const glm::vec2 NODE_WINDOW_PADDING(8);
+	for (size_t i = 0; i < nodes.size(); ++i) {
+		TreeNode &n = nodes[i];
+		ImGui::PushID(i);
+
+		// Draw node rect foreground
+		draw_list->ChannelsSetCurrent(1);
+		const glm::vec2 rect_start = offset + n.ui_pos;
+		ImGui::SetCursorScreenPos(rect_start + NODE_WINDOW_PADDING);
+		ImGui::BeginGroup();
+		ImGui::Text("Node %lu\nType: %lu\nValue: %.2f", i, n.type, n.value);
+		ImGui::EndGroup();
+
+		// Draw the node rect
+		draw_list->ChannelsSetCurrent(0);
+		ImGui::SetCursorScreenPos(rect_start);
+		ImGui::InvisibleButton("node", n.ui_size);
+		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0)) {
+			n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
+		}
+		const glm::vec2 rect_end = rect_start + n.ui_size;
+		draw_list->AddRectFilled(rect_start, rect_end, ImColor(60, 60, 60), 4.f);
+		draw_list->AddRect(rect_start, rect_end, ImColor(100, 100, 100), 4.f);
+
+		ImGui::PopID();
+	}
+	draw_list->ChannelsMerge();
+
+	if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive() && ImGui::IsMouseDragging(2, 0.f)) {
+		scrolling -= glm::vec2(ImGui::GetIO().MouseDelta);
+	}
+
+	ImGui::PopItemWidth();
+	ImGui::EndChild();
+
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(2);
+
+	ImGui::End();
+}
+#if 0
 void TreeWidget::draw_ui() {
 	if (!ImGui::Begin("Tree Widget")) {
 		ImGui::End();
@@ -204,6 +345,7 @@ void TreeWidget::draw_ui() {
 
 	ImGui::End();
 }
+#endif
 const std::vector<uint32_t>& TreeWidget::get_selection() const {
 	return selected_segmentations;
 }
@@ -214,7 +356,7 @@ struct VecComparator {
 			|| (a.x == b.x && a.y == b.y && a.z < b.z);
 	}
 };
-
+#if 0
 void TreeWidget::build_ui_tree() {
 	// Build a map of the 3D point to the graph point and use that to do the lookup for point ids
 	std::map<glm::uvec3, size_t, VecComparator> point_map;
@@ -225,7 +367,7 @@ void TreeWidget::build_ui_tree() {
 		// Look and see if a point for our start point has been made already by the branches
 		// entering us
 		size_t start_pt = display_tree.points.size();
-#if 1
+#if 0
 		// TODO: Fix the shared vertex finding
 		for (const auto &x : b.entering_branches) {
 			auto fnd = display_tree.branches.find(x);
@@ -240,7 +382,7 @@ void TreeWidget::build_ui_tree() {
 		}
 
 		display_tree.branches[b.segmentation_id].start = start_pt;
-#if 1
+#if 0
 		for (const auto &x : b.entering_branches) {
 			display_tree.branches[x].end = start_pt;
 		}
@@ -250,7 +392,7 @@ void TreeWidget::build_ui_tree() {
 		// Look and see if a point for our end point has been made already by the branches
 		// exiting us
 		size_t end_pt = display_tree.points.size();
-#if 1
+#if 0
 		for (const auto &x : b.exiting_branches) {
 			auto fnd = display_tree.branches.find(x);
 			if (fnd != display_tree.branches.end()) {
@@ -264,7 +406,7 @@ void TreeWidget::build_ui_tree() {
 		}
 
 		display_tree.branches[b.segmentation_id].end = end_pt;
-#if 1
+#if 0
 		for (const auto &x : b.exiting_branches) {
 			display_tree.branches[x].start = end_pt;
 		}
@@ -294,4 +436,5 @@ void TreeWidget::build_ui_tree() {
 		}
 	}
 }
+#endif
 

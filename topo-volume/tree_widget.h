@@ -15,8 +15,24 @@ struct Branch {
 	float start_val, end_val;
 	// Branches entering and exiting this branches start/end points respectively
 	std::vector<size_t> entering_branches, exiting_branches;
+	// Start and end nodes
+	size_t start_node, end_node;
 };
 std::ostream& operator<<(std::ostream &os, const Branch &b);
+
+struct TreeNode {
+	glm::uvec3 pos;
+	float value;
+	size_t type;
+	std::vector<size_t> entering_branches, exiting_branches;
+
+	// Info for displaying the corresponding ui
+	glm::vec2 ui_pos, ui_size;
+
+	glm::vec2 get_input_slot_pos(const size_t slot) const;
+	glm::vec2 get_output_slot_pos(const size_t slot) const;
+};
+std::ostream& operator<<(std::ostream &os, const TreeNode &n);
 
 struct DisplayBranch {
 	size_t start, end, segmentation;
@@ -36,9 +52,11 @@ class TreeWidget {
 	vtkPolyData *tree_arcs, *tree_nodes;
 	std::vector<uint32_t> selected_segmentations;
 	std::vector<Branch> branches;
+	std::vector<TreeNode> nodes;
 	DisplayTree display_tree;
 	glm::vec2 img_range;
 	float zoom_amount;
+	glm::vec2 scrolling;
 
 public:
 	/* Construct the tree widget from the arc and node outputs
@@ -49,6 +67,6 @@ public:
 	const std::vector<uint32_t>& get_selection() const;
 
 private:
-	void build_ui_tree();
+	//void build_ui_tree();
 };
 
