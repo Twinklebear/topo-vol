@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <utility>
 #include <iostream>
+#include <algorithm>
 #include <glm/ext.hpp>
 #include <vtkDataSetAttributes.h>
 #include <vtkDataSet.h>
