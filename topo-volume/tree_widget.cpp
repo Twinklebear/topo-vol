@@ -122,11 +122,19 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 	// Push on the last segmentation
 	branches[current_branch.segmentation_id] = current_branch;
 
-	// Build the list of nodes and their connections in the tree
+	// Setup node data
 	vtkPoints *node_points = tree_nodes->GetPoints();
 	vtkDataSetAttributes *node_attribs = tree_nodes->GetAttributes(vtkDataSet::POINT);
+	// Find the number of unique imagefile vals so we can compress the tree down a bit
+	std::set<float> node_img_vals;
+	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
+		node_img_vals.insert(node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0]);
+	}
+
+	// Build the list of nodes and their connections in the tree
 	std::unordered_map<float, size_t> node_val_count;
 	const glm::vec2 node_dims(110, 60);
+	const glm::vec2 node_spacing(16, 8);
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
 		int idx = 0;
 		TreeNode n;
@@ -135,7 +143,11 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
 		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
 		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
-		n.ui_pos = glm::vec2(n.value * (node_dims.x + 8), node_val_count[n.value] * (node_dims.y + 8));
+
+		// Compute node position in the ui layout
+		auto fnd = node_img_vals.find(n.value);
+		n.ui_pos = glm::vec2(std::distance(node_img_vals.begin(), fnd) * (node_dims.x + node_spacing.x),
+				node_val_count[n.value] * (node_dims.y + node_spacing.y));
 		n.ui_size = node_dims;
 
 		node_val_count[n.value]++;
@@ -149,7 +161,6 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 				b.end_node = i;
 			}
 		}
-		std::cout << n << "\n";
 		this->nodes.push_back(n);
 	}
 
@@ -174,15 +185,16 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 	//build_ui_tree();
 }
 bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2 &point) {
-	if (point.x < std::min(start.x, end.x) - 2 || point.x > std::max(start.x, end.x) + 2
-			|| point.y < std::min(start.y, end.y) - 2 || point.y > std::max(start.y, end.y) + 2) {
+	const float click_dist = 4;
+	if (point.x < std::min(start.x, end.x) - click_dist || point.x > std::max(start.x, end.x) + click_dist
+			|| point.y < std::min(start.y, end.y) - click_dist || point.y > std::max(start.y, end.y) + click_dist) {
 		return false;
 	}
 	const glm::vec2 dir = end - start;
 	const glm::vec2 n = glm::normalize(glm::vec2(dir.y, -dir.x));
 	const float d = std::abs(glm::dot(n, point - start));
 	// Measurements are in pixels
-	return d < 2;
+	return d < click_dist;
 }
 void TreeWidget::draw_ui() {
 	if (!ImGui::Begin("Tree Widget")) {
@@ -204,6 +216,7 @@ void TreeWidget::draw_ui() {
 	ImGui::PushItemWidth(120.f);
 
 	const glm::vec2 offset = glm::vec2(ImGui::GetCursorScreenPos()) - scrolling;
+	const glm::vec2 mouse_pos = glm::vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
 	ImDrawList *draw_list = ImGui::GetWindowDrawList();
 	draw_list->ChannelsSplit(2);
 
@@ -214,7 +227,22 @@ void TreeWidget::draw_ui() {
 		const TreeNode &end = nodes[b.end_node];
 		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
 		const glm::vec2 p2 = offset + end.get_input_slot_pos(b.segmentation_id);
-		draw_list->AddLine(p1, p2, ImColor(0.8f, 0.8f, 0.1f));
+
+		const bool selected = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.segmentation_id)
+			!= selected_segmentations.end();
+		const ImColor color = selected ? ImColor(0.9f, 0.9f, 0.2f, 1.f) : ImColor(0.8f, 0.8f, 0.1f, 0.5f);
+		draw_list->AddLine(p1, p2, color, 2.f);
+		if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && point_on_line(p1, p2, mouse_pos)) {
+			if (!ImGui::GetIO().KeyCtrl) {
+				selected_segmentations.clear();
+			}
+			auto fnd = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.segmentation_id);
+			if (fnd != selected_segmentations.end()) {
+				selected_segmentations.erase(fnd);
+			} else if (!selected) {
+				selected_segmentations.push_back(b.segmentation_id);
+			}
+		}
 	}
 
 	const glm::vec2 NODE_WINDOW_PADDING(8);
@@ -234,12 +262,33 @@ void TreeWidget::draw_ui() {
 		draw_list->ChannelsSetCurrent(0);
 		ImGui::SetCursorScreenPos(rect_start);
 		ImGui::InvisibleButton("node", n.ui_size);
-		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0)) {
-			n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
+		if (ImGui::IsItemActive()) {
+			if (ImGui::IsMouseDragging(0)) {
+				n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
+			} else if (ImGui::IsMouseClicked(0)) {
+				if (!ImGui::GetIO().KeyCtrl) {
+					selected_segmentations.clear();
+				}
+				for (const auto &x : n.entering_branches) {
+					selected_segmentations.push_back(x);
+				}
+				for (const auto &x : n.exiting_branches) {
+					selected_segmentations.push_back(x);
+				}
+			}
 		}
+
 		const glm::vec2 rect_end = rect_start + n.ui_size;
 		draw_list->AddRectFilled(rect_start, rect_end, ImColor(60, 60, 60), 4.f);
 		draw_list->AddRect(rect_start, rect_end, ImColor(100, 100, 100), 4.f);
+
+		// Draw little circles for each connection on to the node
+		for (const auto &x : n.entering_branches) {
+			draw_list->AddCircleFilled(offset + n.get_input_slot_pos(x), 5.f, ImColor(150, 150, 150, 150));
+		}
+		for (const auto &x : n.exiting_branches) {
+			draw_list->AddCircleFilled(offset + n.get_output_slot_pos(x), 5.f, ImColor(150, 150, 150, 150));
+		}
 
 		ImGui::PopID();
 	}
