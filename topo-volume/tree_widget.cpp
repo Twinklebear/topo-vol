@@ -133,8 +133,8 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 
 	// Build the list of nodes and their connections in the tree
 	std::unordered_map<float, size_t> node_val_count;
-	const glm::vec2 node_dims(110, 60);
-	const glm::vec2 node_spacing(16, 8);
+	const glm::vec2 node_dims(116, 60);
+	const glm::vec2 node_spacing(24, 12);
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
 		int idx = 0;
 		TreeNode n;
@@ -164,7 +164,7 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 		this->nodes.push_back(n);
 	}
 
-	// TODO: Go through all start/end points and find entering/exiting branches to build connectivity
+	// Go through all start/end points and find entering/exiting branches to build connectivity
 	for (auto &b : branches) {
 		// Find all branches entering this one (their end = our start)
 		for (size_t i = 0; i < branches.size(); ++i){
@@ -178,11 +178,7 @@ TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
 				b.exiting_branches.push_back(i);
 			}
 		}
-		//std::cout << b << "\n";
 	}
-
-	// Setup the display data
-	//build_ui_tree();
 }
 bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2 &point) {
 	const float click_dist = 4;
@@ -255,7 +251,15 @@ void TreeWidget::draw_ui() {
 		const glm::vec2 rect_start = offset + n.ui_pos;
 		ImGui::SetCursorScreenPos(rect_start + NODE_WINDOW_PADDING);
 		ImGui::BeginGroup();
-		ImGui::Text("Node %lu\nType: %lu\nValue: %.2f", i, n.type, n.value);
+		const char *type = nullptr;
+		switch (n.type) {
+			case 0: type = "Minima"; break;
+			case 1: type = "1-Saddle"; break;
+			case 2: type = "2-Saddle"; break;
+			case 3: type = "Maxima"; break;
+			default: type = "Unknown"; break;
+		}
+		ImGui::Text("Node %lu\nType: %s\nValue: %.2f", i, type, n.value);
 		ImGui::EndGroup();
 
 		// Draw the node rect
