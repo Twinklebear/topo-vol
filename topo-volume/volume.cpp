@@ -58,9 +58,6 @@ Volume::Volume(vtkImageData *vol, const std::string &array_name)
 	if (!vtk_data) {
 		throw std::runtime_error("Nonexistant field '" + array_name + "'");
 	}
-	std::cout << "FIELD DATA for VOLUME\n";
-	vtk_data->PrintSelf(std::cout, vtkIndent(2));
-	std::cout << "-----\n";
 
 	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
 	for (size_t i = 0; i < 3; ++i) {

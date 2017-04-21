@@ -49,7 +49,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	vtkImageData *vol = reader->GetOutput();
 	assert(vol);
 	std::cout << "loaded img '" << args[1] << "'\n";
-	vol->PrintSelf(std::cout, vtkIndent(0));
 
 	vtkSmartPointer<vtkContourForests> contourForest
 		= vtkSmartPointer<vtkContourForests>::New();
@@ -57,9 +56,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contourForest->SetTreeType(ttk::TreeType::Split);
 	contourForest->SetArcResolution(20);
 	contourForest->SetSkeletonSmoothing(50);
+	contourForest->SetUseAllCores(true);
 
 	contourForest->Update();
-	contourForest->GetOutput(2)->PrintSelf(std::cout, vtkIndent(0));
 	if (dynamic_cast<vtkImageData*>(contourForest->GetOutput(2))) {
 		std::cout << "it's an image data\n";
 		vol = dynamic_cast<vtkImageData*>(contourForest->GetOutput(2));
