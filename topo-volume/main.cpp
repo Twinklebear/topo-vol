@@ -9,7 +9,11 @@
 #include <vtkSmartPointer.h>
 #include <vtkXMLImageDataReader.h>
 #include <vtkImageData.h>
+#include <vtkThreshold.h>
 #include <vtkContourForests.h>
+#include <vtkPersistenceCurve.h>
+#include <vtkPersistenceDiagram.h>
+#include <vtkTopologicalSimplification.h>
 
 #include "imgui-1.49/imgui.h"
 #include "imgui-1.49/imgui_impl_sdl_gl3.h"
@@ -50,18 +54,50 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	assert(vol);
 	std::cout << "loaded img '" << args[1] << "'\n";
 
-	vtkSmartPointer<vtkContourForests> contourForest
-		= vtkSmartPointer<vtkContourForests>::New();
-	contourForest->SetInputData(reader->GetOutput());
-	contourForest->SetTreeType(ttk::TreeType::Split);
-	contourForest->SetArcResolution(20);
-	contourForest->SetSkeletonSmoothing(50);
-	contourForest->SetUseAllCores(true);
+	vtkSmartPointer<vtkPersistenceDiagram> diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
+	diagram->SetInputConnection(reader->GetOutputPort());
 
-	contourForest->Update();
-	if (dynamic_cast<vtkImageData*>(contourForest->GetOutput(2))) {
+	// Select critical pairs
+	{
+		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::POINT);
+		fields->PrintSelf(std::cout, vtkIndent(2));
+		/*
+		int idx = 0;
+		vtkDataArray *data = fields->GetArray("PairIdentifier", idx);
+		vtkDataArray *pers_data = fields->GetArray("Persistence", idx);
+		std::cout << "Pair id range = [" << data->GetRange()[0] << ", " << data->GetRange()[1] << "]\n"
+			"Persistence = [" << pers_data->GetRange()[0] << ", " << pers_data->GetRange()[1] << "]\n";
+		*/
+	}
+	vtkSmartPointer<vtkThreshold> critical_pairs = vtkSmartPointer<vtkThreshold>::New();
+	critical_pairs->SetInputConnection(diagram->GetOutputPort());
+	critical_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "PairIdentifier");
+	critical_pairs->ThresholdBetween(-0.1, 999999);
+
+	// Select the most persistent pairs
+	vtkSmartPointer<vtkThreshold> persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
+	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
+	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
+	persistent_pairs->ThresholdBetween(20, 999999);
+
+	// 6. simplifying the input data to remove non-persistent pairs
+	vtkSmartPointer<vtkTopologicalSimplification> simplification =
+		vtkSmartPointer<vtkTopologicalSimplification>::New();
+	simplification->SetInputConnection(0, reader->GetOutputPort());
+	simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
+
+	vtkSmartPointer<vtkContourForests> contour_forest
+		= vtkSmartPointer<vtkContourForests>::New();
+	contour_forest->SetInputConnection(simplification->GetOutputPort());
+	contour_forest->SetUseInputOffsetScalarField(true);
+	contour_forest->SetTreeType(ttk::TreeType::Split);
+	contour_forest->SetArcResolution(20);
+	contour_forest->SetSkeletonSmoothing(50);
+	contour_forest->SetUseAllCores(true);
+	contour_forest->Update();
+	if (dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2))) {
 		std::cout << "it's an image data\n";
-		vol = dynamic_cast<vtkImageData*>(contourForest->GetOutput(2));
+		vol = dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2));
 	}
 
 	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
@@ -91,8 +127,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;
-	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contourForest->GetOutput(0)),
-			dynamic_cast<vtkPolyData*>(contourForest->GetOutput(1)));
+	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(0)),
+			dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(1)));
 	Volume volume(vol, "ImageFile");
 	tfcn.histogram = volume.histogram;
 

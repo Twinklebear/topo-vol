@@ -24,6 +24,9 @@ add_definitions(-DwithOpenMP)
 
 # include the different packages required for the application
 ttk_add_vtkWrapper_package(vtkContourForests)
+ttk_add_vtkWrapper_package(vtkPersistenceCurve)
+ttk_add_vtkWrapper_package(vtkPersistenceDiagram)
+ttk_add_vtkWrapper_package(vtkTopologicalSimplification)
 
 # This is basically a dummy wrapper lib to hold the ttk libraries
 # because they don't build their code as a proper library and
