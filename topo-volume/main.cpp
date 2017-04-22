@@ -56,18 +56,17 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	vtkSmartPointer<vtkPersistenceDiagram> diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
 	diagram->SetInputConnection(reader->GetOutputPort());
+	diagram->Update();
 
 	// Select critical pairs
 	{
-		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::POINT);
+		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::CELL);
 		fields->PrintSelf(std::cout, vtkIndent(2));
-		/*
 		int idx = 0;
 		vtkDataArray *data = fields->GetArray("PairIdentifier", idx);
 		vtkDataArray *pers_data = fields->GetArray("Persistence", idx);
 		std::cout << "Pair id range = [" << data->GetRange()[0] << ", " << data->GetRange()[1] << "]\n"
 			"Persistence = [" << pers_data->GetRange()[0] << ", " << pers_data->GetRange()[1] << "]\n";
-		*/
 	}
 	vtkSmartPointer<vtkThreshold> critical_pairs = vtkSmartPointer<vtkThreshold>::New();
 	critical_pairs->SetInputConnection(diagram->GetOutputPort());
@@ -78,7 +77,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	vtkSmartPointer<vtkThreshold> persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
 	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
 	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
-	persistent_pairs->ThresholdBetween(20, 999999);
+	persistent_pairs->ThresholdBetween(0, 999999);
 
 	// 6. simplifying the input data to remove non-persistent pairs
 	vtkSmartPointer<vtkTopologicalSimplification> simplification =
