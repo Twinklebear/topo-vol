@@ -52,6 +52,7 @@ Volume::Volume(vtkImageData *vol, const std::string &array_name)
 	: vol_data(vol), uploaded(false), isovalue(0.f), show_isosurface(false),
 	transform_dirty(true), translation(0), scaling(1)
 {
+	vol->AddObserver(vtkCommand::ModifiedEvent, this);
 	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
 	int idx = 0;
 	vtk_data = fields->GetArray(array_name.c_str(), idx);
@@ -178,6 +179,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 			{
 				int *buf = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT));
 				buf[0] = num_segments;
+				segmentation_selections.clear();
 				segmentation_selections.resize(num_segments, 1);
 				int *s = buf + 1;
 				for (const auto &x : segmentation_selections) {
@@ -255,8 +257,9 @@ void Volume::set_isovalue(float i) {
 void Volume::toggle_isosurface(bool on) {
 	show_isosurface = on;
 }
-void Volume::set_segment_selected(int segment, bool select) {
-	segmentation_selections[segment] = select ? 1 : 0;
+void Volume::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
+	std::cout << __PRETTY_FUNCTION__  << " event: '" << vtkCommand::GetStringFromEventId(event_id) << "'\n";
+	uploaded = false;
 }
 void Volume::build_histogram(){
 	// Find scale & bias for the volume data

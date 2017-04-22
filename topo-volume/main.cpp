@@ -89,15 +89,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		= vtkSmartPointer<vtkContourForests>::New();
 	contour_forest->SetInputConnection(simplification->GetOutputPort());
 	contour_forest->SetUseInputOffsetScalarField(true);
-	contour_forest->SetTreeType(ttk::TreeType::Split);
 	contour_forest->SetArcResolution(20);
 	contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
-	contour_forest->Update();
-	if (dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2))) {
-		std::cout << "it's an image data\n";
-		vol = dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2));
-	}
 
 	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
 
@@ -126,20 +120,9 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;
-	TreeWidget tree_widget(dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(0)),
-			dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(1)));
-	Volume volume(vol, "ImageFile");
+	TreeWidget tree_widget(contour_forest);
+	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = volume.histogram;
-
-	int max_segment_id = 0;
-	{
-		vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
-		int idx = 0;
-		vtkDataArray *seg_data = fields->GetArray("SegmentationId", idx);
-		if (seg_data) {
-			max_segment_id = seg_data->GetRange()[1];
-		}
-	}
 
 	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
 	// in this widget and select those segments in the volume rendering.
@@ -215,11 +198,10 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		tree_widget.draw_ui();
 
 		const auto &tree_selection = tree_widget.get_selection();
-		for (size_t i = 0; i < max_segment_id + 1; ++i) {
-			volume.set_segment_selected(i, tree_selection.empty());
-		}
+		std::fill(volume.segmentation_selections.begin(), volume.segmentation_selections.end(),
+				tree_selection.empty() ? 1 : 0);
 		for (const auto &x : tree_selection) {
-			volume.set_segment_selected(x, true);
+			volume.segmentation_selections[x] = 1;
 		}
 
 		ui_hovered = ImGui::IsMouseHoveringAnyWindow();

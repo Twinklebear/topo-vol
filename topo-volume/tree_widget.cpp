@@ -65,120 +65,15 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
 	return os;
 }
 
-TreeWidget::TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs)
-	: tree_arcs(arcs), tree_nodes(nodes), zoom_amount(1.0), scrolling(0.f)
+TreeWidget::TreeWidget(vtkSmartPointer<vtkContourForests> cf)
+	: contour_forest(cf), tree_type(ttk::TreeType::Split), tree_arcs(nullptr), tree_nodes(nullptr),
+	zoom_amount(1.f), scrolling(0.f)
 {
-	assert(tree_arcs);
-	assert(tree_nodes);
-	vtkDataSetAttributes *point_attribs = tree_arcs->GetAttributes(vtkDataSet::POINT);
-	vtkPoints *points = tree_arcs->GetPoints();
-	assert(points);
-
-	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
-	vtkCellArray *lines = tree_arcs->GetLines();
-	assert(lines);
-	// TODO: Build the branch structure which we can then draw. Ignore most
-	// of VTK's crazy crap, we know we have lines and the layout of the points and lines
-	// is as follows:
-	// Points: [p_a, p_b, p_c, p_d, ...]
-	// Lines: [p_a -> p_b, p_c -> p_d, ...]
-	int idx = 0;
-	vtkDataArray *pt_img_file = point_attribs->GetArray("ImageFile", idx);
-	img_range.x = pt_img_file->GetRange()[0];
-	img_range.y = pt_img_file->GetRange()[1];
-
-	vtkDataArray *line_seg_id = cell_attribs->GetArray("SegmentationId", idx);
-	std::cout << "There are " << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
-	branches.resize(size_t(line_seg_id->GetRange()[1]) + 1, Branch());
-	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
-
-	Branch current_branch;
-	current_branch.segmentation_id = line_seg_id->GetTuple(0)[0];
-	for (size_t i = 0; i < lines->GetNumberOfCells(); ++i) {
-		const size_t seg = line_seg_id->GetTuple(i)[0];
-		double pt_pos[3];
-		points->GetPoint(i * 2, pt_pos);
-		const glm::uvec3 start_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
-		points->GetPoint(i * 2 + 1, pt_pos);
-		const glm::uvec3 end_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
-
-		const float start_val = pt_img_file->GetTuple(i * 2)[0];
-		const float end_val = pt_img_file->GetTuple(i * 2 + 1)[0];
-
-		// If this line is part of a new segmentation end our current one
-		if (current_branch.segmentation_id != seg) {
-			branches[current_branch.segmentation_id] = current_branch;
-
-			current_branch = Branch();
-			current_branch.start = start_pos;
-			current_branch.start_val = start_val;
-			current_branch.segmentation_id = seg;
-		}
-		current_branch.end = end_pos;
-		current_branch.end_val = end_val;
-		current_branch.start_node = -1;
-		current_branch.end_node = -1;
-	}
-	// Push on the last segmentation
-	branches[current_branch.segmentation_id] = current_branch;
-
-	// Setup node data
-	vtkPoints *node_points = tree_nodes->GetPoints();
-	vtkDataSetAttributes *node_attribs = tree_nodes->GetAttributes(vtkDataSet::POINT);
-	// Find the number of unique imagefile vals so we can compress the tree down a bit
-	std::set<float> node_img_vals;
-	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
-		node_img_vals.insert(node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0]);
-	}
-
-	// Build the list of nodes and their connections in the tree
-	std::unordered_map<float, size_t> node_val_count;
-	const glm::vec2 node_dims(116, 60);
-	const glm::vec2 node_spacing(24, 12);
-	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
-		int idx = 0;
-		TreeNode n;
-		double pt_pos[3];
-		node_points->GetPoint(i, pt_pos);
-		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
-		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
-		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
-
-		// Compute node position in the ui layout
-		auto fnd = node_img_vals.find(n.value);
-		n.ui_pos = glm::vec2(std::distance(node_img_vals.begin(), fnd) * (node_dims.x + node_spacing.x),
-				node_val_count[n.value] * (node_dims.y + node_spacing.y));
-		n.ui_size = node_dims;
-
-		node_val_count[n.value]++;
-
-		for (auto &b : branches) {
-			if (b.start == n.pos) {
-				n.exiting_branches.push_back(b.segmentation_id);
-				b.start_node = i;
-			} else if (b.end == n.pos) {
-				n.entering_branches.push_back(b.segmentation_id);
-				b.end_node = i;
-			}
-		}
-		this->nodes.push_back(n);
-	}
-
-	// Go through all start/end points and find entering/exiting branches to build connectivity
-	for (auto &b : branches) {
-		// Find all branches entering this one (their end = our start)
-		for (size_t i = 0; i < branches.size(); ++i){
-			if (branches[i].end == b.start) {
-				b.entering_branches.push_back(i);
-			}
-		}
-		// Find all branches exiting this one (their start = our end)
-		for (size_t i = 0; i < branches.size(); ++i){
-			if (branches[i].start == b.end) {
-				b.exiting_branches.push_back(i);
-			}
-		}
-	}
+	// Watch for updates to the contour forest
+	cf->SetTreeType(tree_type);
+	cf->Update();
+	build_tree();
+	cf->AddObserver(vtkCommand::EndEvent, this);
 }
 bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2 &point) {
 	const float click_dist = 4;
@@ -198,7 +93,24 @@ void TreeWidget::draw_ui() {
 		return;
 	}
 
-	ImGui::Text("Contour/Split/Merge Tree");
+	int tree_selection = 0;
+	switch (tree_type) {
+		case ttk::TreeType::Contour: tree_selection = 0; break;
+		case ttk::TreeType::Split: tree_selection = 1; break;
+		case ttk::TreeType::Join: tree_selection = 2; break;
+		default: tree_selection = 0;
+	}
+	ImGui::Text("Tree Type");
+	ImGui::RadioButton("Contour", &tree_selection, 0); ImGui::SameLine();
+	ImGui::RadioButton("Split", &tree_selection, 1); ImGui::SameLine();
+	ImGui::RadioButton("Join", &tree_selection, 2);
+
+	if (branches.empty() || nodes.empty()){
+		ImGui::Text("Tree is empty!");
+		ImGui::End();
+		return;
+	}
+
 	if (ImGui::Button("Clear Selection")) {
 		selected_segmentations.clear();
 	}
@@ -309,15 +221,141 @@ void TreeWidget::draw_ui() {
 	ImGui::PopStyleVar(2);
 
 	ImGui::End();
+
+	// Update the tree if we chose a new type
+	int new_tree_type = tree_type;
+	switch (tree_selection) {
+		case 0: new_tree_type = ttk::TreeType::Contour; break;
+		case 1: new_tree_type = ttk::TreeType::Split; break;
+		case 2: new_tree_type = ttk::TreeType::Join; break;
+		default: break;
+	}
+	if (new_tree_type != tree_type) {
+		tree_type = new_tree_type;
+		contour_forest->SetTreeType(tree_type);
+		contour_forest->Update();
+	}
 }
 const std::vector<uint32_t>& TreeWidget::get_selection() const {
 	return selected_segmentations;
 }
+void TreeWidget::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
+	std::cout << __PRETTY_FUNCTION__  << " event: '" << vtkCommand::GetStringFromEventId(event_id) << "'\n";
+	build_tree();
+}
+void TreeWidget::build_tree() {
+	branches.clear();
+	nodes.clear();
+	selected_segmentations.clear();
+	zoom_amount = 1.0;
+	scrolling = glm::vec2(0);
 
-struct VecComparator {
-	bool operator()(const glm::uvec3 &a, const glm::uvec3 &b) const {
-		return a.x < b.x || (a.x == b.x && a.y < b.y)
-			|| (a.x == b.x && a.y == b.y && a.z < b.z);
+	tree_nodes = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(0));
+	tree_arcs = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(1));
+	assert(tree_arcs);
+	assert(tree_nodes);
+
+	vtkDataSetAttributes *point_attribs = tree_arcs->GetAttributes(vtkDataSet::POINT);
+	vtkPoints *points = tree_arcs->GetPoints();
+	assert(points);
+
+	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
+	vtkCellArray *lines = tree_arcs->GetLines();
+	assert(lines);
+
+	int idx = 0;
+	vtkDataArray *pt_img_file = point_attribs->GetArray("ImageFile", idx);
+	vtkDataArray *line_seg_id = cell_attribs->GetArray("SegmentationId", idx);
+	std::cout << "There are " << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
+	branches.resize(size_t(line_seg_id->GetRange()[1]) + 1, Branch());
+	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
+
+	Branch current_branch;
+	current_branch.segmentation_id = line_seg_id->GetTuple(0)[0];
+	for (size_t i = 0; i < lines->GetNumberOfCells(); ++i) {
+		const size_t seg = line_seg_id->GetTuple(i)[0];
+		double pt_pos[3];
+		points->GetPoint(i * 2, pt_pos);
+		const glm::uvec3 start_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
+		points->GetPoint(i * 2 + 1, pt_pos);
+		const glm::uvec3 end_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
+
+		const float start_val = pt_img_file->GetTuple(i * 2)[0];
+		const float end_val = pt_img_file->GetTuple(i * 2 + 1)[0];
+
+		// If this line is part of a new segmentation end our current one
+		if (current_branch.segmentation_id != seg) {
+			branches[current_branch.segmentation_id] = current_branch;
+
+			current_branch = Branch();
+			current_branch.start = start_pos;
+			current_branch.start_val = start_val;
+			current_branch.segmentation_id = seg;
+		}
+		current_branch.end = end_pos;
+		current_branch.end_val = end_val;
+		current_branch.start_node = -1;
+		current_branch.end_node = -1;
 	}
-};
+	// Push on the last segmentation
+	branches[current_branch.segmentation_id] = current_branch;
+
+	// Setup node data
+	vtkPoints *node_points = tree_nodes->GetPoints();
+	vtkDataSetAttributes *node_attribs = tree_nodes->GetAttributes(vtkDataSet::POINT);
+	// Find the number of unique imagefile vals so we can compress the tree down a bit
+	std::set<float> node_img_vals;
+	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
+		node_img_vals.insert(node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0]);
+	}
+
+	// Build the list of nodes and their connections in the tree
+	std::unordered_map<float, size_t> node_val_count;
+	const glm::vec2 node_dims(116, 60);
+	const glm::vec2 node_spacing(24, 12);
+	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
+		int idx = 0;
+		TreeNode n;
+		double pt_pos[3];
+		node_points->GetPoint(i, pt_pos);
+		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
+		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
+		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
+
+		// Compute node position in the ui layout
+		auto fnd = node_img_vals.find(n.value);
+		n.ui_pos = glm::vec2(std::distance(node_img_vals.begin(), fnd) * (node_dims.x + node_spacing.x),
+				node_val_count[n.value] * (node_dims.y + node_spacing.y));
+		n.ui_size = node_dims;
+
+		node_val_count[n.value]++;
+
+		for (auto &b : branches) {
+			if (b.start == n.pos) {
+				n.exiting_branches.push_back(b.segmentation_id);
+				b.start_node = i;
+			} else if (b.end == n.pos) {
+				n.entering_branches.push_back(b.segmentation_id);
+				b.end_node = i;
+			}
+		}
+		nodes.push_back(n);
+	}
+
+	// Go through all start/end points and find entering/exiting branches to build connectivity
+	for (auto &b : branches) {
+		// Find all branches entering this one (their end = our start)
+		for (size_t i = 0; i < branches.size(); ++i){
+			if (branches[i].end == b.start) {
+				b.entering_branches.push_back(i);
+			}
+		}
+		// Find all branches exiting this one (their start = our end)
+		for (size_t i = 0; i < branches.size(); ++i){
+			if (branches[i].start == b.end) {
+				b.exiting_branches.push_back(i);
+			}
+		}
+	}
+}
 

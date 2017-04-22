@@ -8,6 +8,7 @@
 #include <glm/ext.hpp>
 #include <vtkImageData.h>
 #include <vtkDataArray.h>
+#include <vtkCommand.h>
 #include "glt/gl_core_4_5.h"
 #include "glt/buffer_allocator.h"
 
@@ -16,7 +17,7 @@
  * TODO: Loading the volume from disk (e.g. changing raw dims or data type
  * or picking a new hz-level or field from IDX) should be asynchronous
  */
-class Volume {
+class Volume : public vtkCommand {
 	// If dims are -1 no volume has been loaded, e.g. for raw
 	// the user must input the dimensions and data type into the picker
 	// TODO: Do I need both dims and render_dims? in gpu_dvr we use
@@ -40,7 +41,6 @@ class Volume {
 	glm::mat4 base_matrix;
 	glm::vec3 translation, scaling, vol_render_size;
 	glm::quat rotation;
-	std::vector<int> segmentation_selections;
 
 public:
 	// TODO: make private, public only temporarily Min and max values in the data set
@@ -49,6 +49,7 @@ public:
 	// TODO: Should the volume no longer build a histogram and instead the
 	// user handles it? Maybe the user could pass the value min/max as well?
 	std::vector<size_t> histogram;
+	std::vector<int> segmentation_selections;
 
 	Volume(vtkImageData *vol, const std::string &array_name = "ImageFile");
 	~Volume();
@@ -71,7 +72,7 @@ public:
 	void render(std::shared_ptr<glt::BufferAllocator> &buf_allocator);
 	void set_isovalue(float isovalue);
 	void toggle_isosurface(bool on);
-	void set_segment_selected(int segment, bool select);
+	void Execute(vtkObject *caller, unsigned long event_id, void *call_data) override;
 
 private:
 	// Find the min/max of the data and build the histogram

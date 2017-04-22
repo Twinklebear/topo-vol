@@ -4,6 +4,9 @@
 #include <ostream>
 #include <vector>
 #include <vtkPolyData.h>
+#include <vtkCommand.h>
+#include <vtkContourForests.h>
+#include <vtkSmartPointer.h>
 
 // A branch in the tree, representing a specific segmentation
 // id of the data
@@ -34,27 +37,17 @@ struct TreeNode {
 };
 std::ostream& operator<<(std::ostream &os, const TreeNode &n);
 
-struct DisplayBranch {
-	size_t start, end, segmentation;
-};
-
-// The tree to display in the widget
-struct DisplayTree {
-	std::unordered_map<size_t, DisplayBranch> branches;
-	std::vector<glm::vec2> points;
-};
-
 /* Displays and allows the user to interact with the contour/merge/split
  * tree produced by TTK for the dataset. The actively selected segmentations
  * can be queried for use in later filtering operations.
  */
-class TreeWidget {
+class TreeWidget : public vtkCommand {
+	vtkSmartPointer<vtkContourForests> contour_forest;
+	int tree_type;
 	vtkPolyData *tree_arcs, *tree_nodes;
 	std::vector<uint32_t> selected_segmentations;
 	std::vector<Branch> branches;
 	std::vector<TreeNode> nodes;
-	DisplayTree display_tree;
-	glm::vec2 img_range;
 	float zoom_amount;
 	glm::vec2 scrolling;
 
@@ -62,11 +55,13 @@ public:
 	/* Construct the tree widget from the arc and node outputs
 	 * from TTK's ContourForests VTK filter
 	 */
-	TreeWidget(vtkPolyData *nodes, vtkPolyData *arcs);
+	TreeWidget(vtkSmartPointer<vtkContourForests> contour_forest);
 	void draw_ui();
 	const std::vector<uint32_t>& get_selection() const;
+	void Execute(vtkObject *caller, unsigned long event_id, void *call_data) override;
 
 private:
-	//void build_ui_tree();
+	// Build the connectivity of the tree from the information TTK gives us
+	void build_tree();
 };
 
