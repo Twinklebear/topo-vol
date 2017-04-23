@@ -20,7 +20,7 @@ add_subdirectory(ttk-bs)
 include_directories(${TTK_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TTK_CMAKE_CXX_FLAGS} -fopenmp")
 
-add_executable(topo-volume main.cpp volume.cpp transfer_function.cpp tree_widget.cpp)
+add_executable(topo-volume main.cpp volume.cpp transfer_function.cpp tree_widget.cpp persistence_curve_widget.cpp)
 set_property(TARGET topo-volume PROPERTY CXX_STANDARD 11)
 target_link_libraries(topo-volume ${VTK_LIBRARIES} ${SDL2_LIBRARY}
 	${OPENGL_LIBRARIES} imgui glt ttk-bs)

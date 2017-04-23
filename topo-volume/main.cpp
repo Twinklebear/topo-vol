@@ -25,6 +25,7 @@
 #include "transfer_function.h"
 #include "volume.h"
 #include "tree_widget.h"
+#include "persistence_curve_widget.h"
 
 static size_t WIN_WIDTH = 1280;
 static size_t WIN_HEIGHT = 720;
