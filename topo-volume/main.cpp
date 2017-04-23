@@ -122,6 +122,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// Setup transfer function and volume
 	TransferFunction tfcn;
 	TreeWidget tree_widget(contour_forest);
+	PersistenceCurveWidget persistence_curve_widget;
 	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = volume.histogram;
 
@@ -197,6 +198,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 		tfcn.draw_ui();
 		tree_widget.draw_ui();
+		persistence_curve_widget.draw();
 
 		const auto &tree_selection = tree_widget.get_selection();
 		std::fill(volume.segmentation_selections.begin(), volume.segmentation_selections.end(),
