@@ -5,77 +5,71 @@
 #include <vtkVariant.h>
 #include "persistence_curve_widget.h"
 
-void PersistenceCurveWidget::draw
-(const char* label, CurveData& curve)
+void PersistenceCurveWidget::draw(const char* label, CurveData& curve)
 {
     if (ImGui::Begin(label)) 
     {
         curve.ID = ImGui::GetID(label);
 
-	// draw button
-	ImGui::Checkbox("X log scale", &xlog);
-	ImGui::SameLine();
-	ImGui::Checkbox("y log scale", &ylog);
-	std::string mode = "current scale: ";
-	if (xlog && ylog) {
-	    curve_idx = 4;
-	} 
-	else if (xlog) {
-	    curve_idx = 3;
-	} 
-	else if (ylog) {
-	    curve_idx = 2;
-	} 
-	else {
-	    curve_idx = 1;
-	}
+		// draw button
+		ImGui::Checkbox("X log scale", &xlog);
+		ImGui::SameLine();
+		ImGui::Checkbox("y log scale", &ylog);
+		std::string mode = "current scale: ";
+		if (xlog && ylog) {
+			curve_idx = 4;
+		} 
+		else if (xlog) {
+			curve_idx = 3;
+		} 
+		else if (ylog) {
+			curve_idx = 2;
+		} 
+		else {
+			curve_idx = 1;
+		}
 
-	// draw two sliders
-	ImGui::SliderFloat("min persistence", &curve.threshold[0], curve.data_min[0], curve.data_max[0]);
-	ImGui::SliderFloat("max persistence", &curve.threshold[1], curve.data_min[0], curve.data_max[0]);
-	
-	// draw rect
-	const int offset = 40;
-	const glm::vec2 canvas_pos (ImGui::GetCursorScreenPos().x,    ImGui::GetCursorScreenPos().y + offset);
-	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y - offset);
-	const glm::vec2 view_scale (canvas_size.x, -canvas_size.y);
-	const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
+		// draw two sliders
+		ImGui::SliderFloat("min persistence", &curve.threshold[0], curve.data_min[0], curve.data_max[0]);
+		ImGui::SliderFloat("max persistence", &curve.threshold[1], curve.data_min[0], curve.data_max[0]);
 
-	ImDrawList *draw_list = ImGui::GetWindowDrawList();
-	draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 0, 255));
-	draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
-	
-	// draw curve
-	int current_frame = ImGui::GetFrameCount();
-	if (curve.last_frame != current_frame)
-	{
-	    const glm::vec2 scale = (curve.data_max - curve.data_min);
-	    // curve
-	    for (int i = 0; i < static_cast<int>(curve.data.size())-1; ++i) {
-		const glm::vec2 ra = (curve.data[i]   - curve.data_min);
-		const glm::vec2 rb = (curve.data[i+1] - curve.data_min);
-		const glm::vec2 a(ra[0] / scale[0], ra[1] / scale[1]);
-		const glm::vec2 b(rb[0] / scale[0], rb[1] / scale[1]);
-		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, curve.color, 2.0f);
-	    }
-	    // threshold left
-	    {
-		float v = (curve.threshold[0] - curve.data_min[0]) / scale[0];
-		const glm::vec2 a(v, 0.0f);
-		const glm::vec2 b(v, 1.0f);
-		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
-	    }	    
-	    // threshold right
-	    {
-		float v = (curve.threshold[1] - curve.data_min[0]) / scale[0];
-		const glm::vec2 a(v, 0.0f);
-		const glm::vec2 b(v, 1.0f);
-		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
-	    }	    
-	    curve.last_frame = current_frame;
+		// draw rect
+		const int offset = 40;
+		const glm::vec2 canvas_pos (ImGui::GetCursorScreenPos().x,    ImGui::GetCursorScreenPos().y + offset);
+		const glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y - offset);
+		const glm::vec2 view_scale (canvas_size.x, -canvas_size.y);
+		const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
+
+		ImDrawList *draw_list = ImGui::GetWindowDrawList();
+		draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 0, 255));
+		draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
+
+		// draw curve
+		const glm::vec2 scale = (curve.data_max - curve.data_min);
+		// curve
+		for (int i = 0; i < static_cast<int>(curve.data.size())-1; ++i) {
+			const glm::vec2 ra = (curve.data[i]   - curve.data_min);
+			const glm::vec2 rb = (curve.data[i+1] - curve.data_min);
+			const glm::vec2 a(ra[0] / scale[0], ra[1] / scale[1]);
+			const glm::vec2 b(rb[0] / scale[0], rb[1] / scale[1]);
+			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, curve.color, 2.0f);
+		}
+		// threshold left
+		{
+			float v = (curve.threshold[0] - curve.data_min[0]) / scale[0];
+			const glm::vec2 a(v, 0.0f);
+			const glm::vec2 b(v, 1.0f);
+			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
+		}	    
+		// threshold right
+		{
+			float v = (curve.threshold[1] - curve.data_min[0]) / scale[0];
+			const glm::vec2 a(v, 0.0f);
+			const glm::vec2 b(v, 1.0f);
+			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
+		}	    
+		draw_list->PopClipRect();
 	}
-	draw_list->PopClipRect();
-    }
     ImGui::End();
 }
 

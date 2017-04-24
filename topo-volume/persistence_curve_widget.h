@@ -24,7 +24,6 @@ public:
     {
 	ImGuiID        ID = 0;
 	int            color = 0xffffffff;
-	int            last_frame  = -1;
 	int            data_offset = 0;
 	glm::vec2      threshold = glm::vec2(-1.0f, -1.0f);
 	glm::vec2      data_min = glm::vec2(std::numeric_limits<int>::max());
@@ -32,7 +31,6 @@ public:
 	std::vector<glm::vec2> data;
 	void Clear() { 
 	    this->ID = 0;
-	    this->last_frame = -1;
 	    this->data_offset = 0;
 	    this->data_min = glm::vec2(std::numeric_limits<int>::max());
 	    this->data_max = glm::vec2(std::numeric_limits<int>::min());
