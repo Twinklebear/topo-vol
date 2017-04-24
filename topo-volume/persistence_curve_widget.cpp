@@ -90,7 +90,12 @@ int PersistenceCurveWidget::compute(vtkDataSet* input)
     vtkcurve->Update();
 
     std::cout << "[computing curve] start" << std::endl;
-    vtkTable* table = vtkcurve->getResult(1);  // all pairs
+	// Tree type mapping to persistence curve output index:
+	// Join Tree: 0
+	// Morse Smale Curve: 1
+	// Split Tree: 2
+	// Contour Tree: 3
+	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(3)->Get(vtkDataObject::DATA_OBJECT()));
     for(vtkIdType r = 0; r < table->GetNumberOfRows(); r++)
     {
 	// x axis: persistence
