@@ -11,101 +11,101 @@ void PersistenceCurveWidget::draw
     if (ImGui::Begin(label)) 
     {
         curve.ID = ImGui::GetID(label);
+
 	// draw button
-	if (ImGui::Button("Change Mode")) {
-	    curve_idx = 1 + (curve_idx + 1) % (curves.size() - 1);
+	ImGui::Checkbox("X log scale", &xlog);
+	ImGui::SameLine();
+	ImGui::Checkbox("y log scale", &ylog);
+	std::string mode = "current scale: ";
+	if (xlog && ylog) {
+	    curve_idx = 4;
+	} 
+	else if (xlog) {
+	    curve_idx = 3;
+	} 
+	else if (ylog) {
+	    curve_idx = 2;
+	} 
+	else {
+	    curve_idx = 1;
 	}
+
+	// draw two sliders
+	ImGui::SliderFloat("min persistence", &curve.threshold[0], curve.data_min[0], curve.data_max[0]);
+	ImGui::SliderFloat("max persistence", &curve.threshold[1], curve.data_min[0], curve.data_max[0]);
+	
+	// draw rect
+	const int offset = 40;
+	const glm::vec2 canvas_pos (ImGui::GetCursorScreenPos().x,    ImGui::GetCursorScreenPos().y + offset);
+	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y - offset);
+	const glm::vec2 view_scale (canvas_size.x, -canvas_size.y);
+	const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
+
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 0, 255));
+	draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
+	
 	// draw curve
 	int current_frame = ImGui::GetFrameCount();
-	float scale_min, scale_max;
-	if (curve.scale_min > curve.scale_max) {
-	    scale_min = FLT_MAX;
-	    scale_max = FLT_MAX;
-	}
-	else {
-	    scale_min = curve.scale_min;
-	    scale_max = curve.scale_max;
-	}
 	if (curve.last_frame != current_frame)
 	{
-	    std::string mode;
-	    switch (curve_idx) {
-	    case(0):
-		mode = "debug"; break;
-	    case(1):
-		mode = "linear curve"; break;
-	    case(2):
-		mode = "log curve"; break;				    
+	    const glm::vec2 scale = (curve.data_max - curve.data_min);
+	    // curve
+	    for (int i = 0; i < static_cast<int>(curve.data.size())-1; ++i) {
+		const glm::vec2 ra = (curve.data[i]   - curve.data_min);
+		const glm::vec2 rb = (curve.data[i+1] - curve.data_min);
+		const glm::vec2 a(ra[0] / scale[0], ra[1] / scale[1]);
+		const glm::vec2 b(rb[0] / scale[0], rb[1] / scale[1]);
+		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, curve.color, 2.0f);
 	    }
-	    ImGui::PlotLines("curve", curve.data.data(), 
-			     curve.data_count, 
-			     curve.data_offset, 
-			     NULL, 
-			     scale_min, 
-			     scale_max, 
-			     ImVec2(plotxdim, plotydim));
+	    // threshold left
+	    {
+		float v = (curve.threshold[0] - curve.data_min[0]) / scale[0];
+		const glm::vec2 a(v, 0.0f);
+		const glm::vec2 b(v, 1.0f);
+		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
+	    }	    
+	    // threshold right
+	    {
+		float v = (curve.threshold[1] - curve.data_min[0]) / scale[0];
+		const glm::vec2 a(v, 0.0f);
+		const glm::vec2 b(v, 1.0f);
+		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
+	    }	    
 	    curve.last_frame = current_frame;
 	}
+	draw_list->PopClipRect();
     }
     ImGui::End();
 }
 
 int PersistenceCurveWidget::compute(vtkDataSet* input)
 {
+    std::cout << "[PersistenceCurve] start" << std::endl;
     vtkcurve = vtkSmartPointer<vtkPersistenceCurve>::New();
     vtkcurve->SetInputData(input);
     vtkcurve->SetComputeSaddleConnectors(false);
-    vtkcurve->SetThreadNumber(numthread);
+    vtkcurve->SetUseAllCores(true);
     vtkcurve->SetdebugLevel_(debuglevel);
     vtkcurve->Update();
 
     std::cout << "[computing curve] start" << std::endl;
-    // colume #0 number of pairs
-    // colume #1 persistence
-    vtkTable* table = vtkcurve->getResult(2);  // all pairs
-    glm::vec2 last(-1.0f, -1.0f);
-    glm::vec2 curr(-1.0f, -1.0f);
-    // axes limits [min, max]
-    // glm::vec2 xlim(std::numeric_limits<int>::max(), std::numeric_limits<int>::min());
-    // glm::vec2 ylim(std::numeric_limits<int>::max(), std::numeric_limits<int>::min());
-    // // get limit
-    // for(vtkIdType r = 0; r < table->GetNumberOfRows(); r++)
-    // {
-    // 	// x axis: persistence
-    // 	// y axis: number of pairs
-    // 	curr = glm::vec2(table->GetValue (r,1).ToFloat(), table->GetValue (r,0).ToFloat());
-    // 	if (curr[0] <= 0.0f || curr[1] <= 0.0f){ continue; }
-    // 	xlim[0] = std::min(xlim[0], curr[0]);
-    // 	xlim[1] = std::max(xlim[1], curr[0]);
-    // 	ylim[0] = std::min(ylim[0], curr[1]);
-    // 	ylim[1] = std::max(ylim[1], curr[1]);
-    // }
-    // get samples
-    glm::vec2 diff;
-    float sample_step = 1.0f / 10.0f;
+    vtkTable* table = vtkcurve->getResult(1);  // all pairs
     for(vtkIdType r = 0; r < table->GetNumberOfRows(); r++)
     {
 	// x axis: persistence
 	// y axis: number of pairs
-	curr = glm::vec2(table->GetValue(r,0).ToFloat(), table->GetValue(r,1).ToFloat());
+	glm::vec2 curr(table->GetValue(r,0).ToFloat(), table->GetValue(r,1).ToFloat());
 	// linear interpolate in between two values
-	if (curr[0] != last[0] && last[0] > -0.1f && last[1] > -0.1f) { // skip first entry
-	    diff = curr - last;
-	    for (float x = 0.0f; x <= diff[0]; x += sample_step) {
-		glm::vec2 val = glm::mix(last, curr, x / diff[0]);
-		curves[1].AddValue(val);
-	    }
+	if (curr[0] > -0.1f && curr[1] > -0.1f) { // skip first entry
+	    curves[1].AddValue(curr);	
 	}
 	// log interpolate in between two values
-	if (curr[0] != last[0] && last[0] > 0.0f && last[1] > 0.0f) { // skip first entry
-	    diff = glm::log(curr) - glm::log(last);
-	    for (float x = 0.0f; x <= diff[0]; x += sample_step) {
-		glm::vec2 val = glm::mix(last, curr, x / diff[0]);
-		curves[2].AddValue(glm::log(val));
-		std::cout << "[computing curve] point " << glm::log(val)[0] << " " << glm::log(val)[1] << std::endl;     
-	    }
+	if (curr[0] > 0.0f && curr[1] > 0.0f) { // skip first entry
+	    curves[2].AddValue(curr[0], glm::log(curr[1]));
+	    curves[3].AddValue(glm::log(curr[0]), curr[1]);
+	    curves[4].AddValue(glm::log(curr));
 	}
-	last = curr;
     }
     std::cout << "[computing curve] finish adding points" << std::endl;     
     std::cout << "[computing curve] Number of Rows: " << table->GetNumberOfRows() << std::endl;

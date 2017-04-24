@@ -30,7 +30,6 @@
 static size_t WIN_WIDTH = 1280;
 static size_t WIN_HEIGHT = 720;
 static unsigned int debuglevel = 0;
-static unsigned int numofthread = 8; // ttk can't get thread number correctly on KNL
 
 void run_app(SDL_Window *win, const std::vector<std::string> &args);
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
@@ -39,9 +38,6 @@ void DefaultCommands(int argc, const char **argv) {
 	std::string str(argv[i]);
 	if (str.compare("-debug") == 0) {
 	    debuglevel = std::stoi(argv[++i]);
-	}
-	if (str.compare("-numThread") == 0 || str.compare("-j") == 0) {
-	    numofthread = std::stoi(argv[++i]);	
 	}
     }
 }
@@ -147,7 +143,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// each other and splitting. The points come in the same order as the arcs,
 	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
 	// Can also check the point locations for the node/arc points to confirm this.
-	PersistenceCurveWidget persistence_curve_widget(reader->GetOutput(), debuglevel, numofthread);
+	PersistenceCurveWidget persistence_curve_widget(reader->GetOutput(), debuglevel);
 
 	bool ui_hovered = false;
 	bool quit = false;

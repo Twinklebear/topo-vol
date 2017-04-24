@@ -23,62 +23,55 @@ public:
     struct CurveData
     {
 	ImGuiID        ID = 0;
+	int            color = 0xffffffff;
 	int            last_frame  = -1;
 	int            data_offset = 0;
-	int            data_count  = 0;
-	float          scale_min = std::numeric_limits<int>::max();
-	float          scale_max = std::numeric_limits<int>::min();
-	std::vector<float> data;
-	std::vector<float> axis;
+	glm::vec2      threshold = glm::vec2(-1.0f, -1.0f);
+	glm::vec2      data_min = glm::vec2(std::numeric_limits<int>::max());
+	glm::vec2      data_max = glm::vec2(std::numeric_limits<int>::min());
+	std::vector<glm::vec2> data;
 	void Clear() { 
 	    this->ID = 0;
 	    this->last_frame = -1;
 	    this->data_offset = 0;
-	    this->data_count = 0;
-	    this->scale_min = std::numeric_limits<int>::max();;
-	    this->scale_max = std::numeric_limits<int>::min();;
+	    this->data_min = glm::vec2(std::numeric_limits<int>::max());
+	    this->data_max = glm::vec2(std::numeric_limits<int>::min());
 	    this->data.clear();
-	    this->axis.clear();
 	}
-	void AddValue(float var) {
-	    this->AddValue(var, static_cast<float>(this->data_count+1)); 
+	void AddValue(float coord, float var) {
+	    this->AddValue(glm::vec2(coord, var)); 
 	}
 	void AddValue(glm::vec2 var) {
-	    this->AddValue(var[1], var[0]); 
-	}
-
-	void AddValue(float var, float coord) {
 	    this->data.push_back(var);
-	    this->scale_min = std::min(this->scale_min, var);
-	    this->scale_max = std::max(this->scale_max, var);
-	    this->axis.push_back(coord);
-	    ++(this->data_count);
+	    this->data_min = glm::min(this->data_min, var);
+	    this->data_max = glm::max(this->data_max, var);
 	}
     };    
 private:
     vtkSmartPointer<vtkPersistenceCurve> vtkcurve;
-    std::array<CurveData, 3> curves; /* debug linear log */
+    std::array<CurveData, 5> curves; /* debug linear xlinear-ylog xlog-ylinear xlog-ylog */
     unsigned int debuglevel = 0;
-    unsigned int numthread = 2;
     unsigned int plotxdim = 600;
     unsigned int plotydim = 100;
     unsigned int curve_idx = 2;
+    bool xlog = false, ylog = false;
 public:
     void debugdata() {
-	for (int i = 0; i < 1000; ++i) { curves[0].AddValue((float)i); }
+	for (int i = 0; i < 1000; ++i) { curves[0].AddValue((float)i, (float)i); }
     }
     ~PersistenceCurveWidget() {}
     PersistenceCurveWidget() { this->debugdata(); }
-    PersistenceCurveWidget(vtkDataSet* input, 
-			   unsigned int debugLevel = 0, 
-			   unsigned int numThread = 2)
+    PersistenceCurveWidget(vtkDataSet* input, unsigned int debugLevel = 0)
     {
 	this->debuglevel = debugLevel;
-	this->numthread = numThread;
 	this->compute(input);
     }
     PersistenceCurveWidget(const PersistenceCurveWidget&) = delete;
     PersistenceCurveWidget& operator=(const PersistenceCurveWidget&) = delete;
+    /**
+     * @brief get threshold
+     */
+    glm::vec2 threshold() { return curves[curve_idx].threshold; }
     /**
      * @brief plot curve
      */
@@ -87,19 +80,19 @@ public:
     {
 	draw(label, curves[curve_idx]);
     }
-    void draw(std::string scale, const char* label = "Persistence Curve") 
+    void draw(std::string drawtype, const char* label = "Persistence Curve") 
     { 
-	if (scale.compare("debug") == 0) {
+	if (drawtype.compare("debug") == 0) {
 	    draw(label, curves[0]);
 	} 
-	else if (scale.compare("linear") == 0) {
+	else if (drawtype.compare("linear") == 0) {
 	    draw(label, curves[1]);
 	}
-	else if (scale.compare("log") == 0) {
-	    draw(label, curves[2]);
+	else if (drawtype.compare("log") == 0) {
+	    draw(label, curves[4]);
 	}
 	else {
-	    std::cerr << "ERROR: plot type (" << scale << ") doesn't exist!" << std::endl;
+	    std::cerr << "ERROR: plot type (" << drawtype << ") doesn't exist!" << std::endl;
 	}
     }
     /**
