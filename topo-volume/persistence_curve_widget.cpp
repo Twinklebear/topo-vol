@@ -6,7 +6,9 @@
 #include <vtkVariant.h>
 #include "persistence_curve_widget.h"
 
-PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input) {
+PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input)
+	: tree_type(ttk::TreeType::Split)
+{
 	diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
 	diagram->SetInputConnection(input->GetOutputPort());
 
@@ -40,21 +42,23 @@ vtkTopologicalSimplification* PersistenceCurveWidget::get_simplification() const
 	return simplification.Get();
 }
 void PersistenceCurveWidget::draw_ui() {
-	if (!ImGui::Begin("Persistence Curve")) {
-		ImGui::End();
-		return;
+	if (ImGui::Begin("Persistence Plots")) {
+		draw_persistence_curve();
+		draw_persistence_diagram();
 	}
+	ImGui::End();
+}
+void PersistenceCurveWidget::draw_persistence_curve() {
+	ImGui::Text("Persistence Range [%.2f, %.2f]", persistence_range.x, persistence_range.y);
+	ImGui::SliderFloat("Min", &threshold_range[0], persistence_range.x, persistence_range.y, "%.3f", glm::e<float>());
+	// Keep values in range
+	threshold_range.y = glm::max(threshold_range.x, threshold_range.y);
 
-	// TODO: Switch to an apply button
-	const bool persistence_updated = ImGui::SliderFloat2("Persistence Range", &threshold_range[0],
-			persistence_range.x, persistence_range.y);
+	ImGui::SliderFloat("Max", &threshold_range[1], persistence_range.x, persistence_range.y, "%.3f", glm::e<float>());
+	threshold_range.x = glm::min(threshold_range.x, threshold_range.y);
+
 	// If we changed our selection update the display in the other widgets
-	if (persistence_updated) {
-		// Keep values in range
-		threshold_range.x = glm::max(threshold_range.x, persistence_range.x);
-		threshold_range.y = glm::max(threshold_range.x, threshold_range.y);
-		threshold_range.y = glm::min(threshold_range.y, persistence_range.y);
-
+	if (ImGui::Button("Apply")) {
 		persistent_pairs->ThresholdBetween(threshold_range[0], threshold_range[1]);
 		simplification->Update();
 	}
@@ -63,11 +67,10 @@ void PersistenceCurveWidget::draw_ui() {
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2(0));
 	ImGui::PushStyleColor(ImGuiCol_ChildWindowBg, ImColor(60, 60, 70, 200));
-	ImGui::BeginChild("tree_region", glm::vec2(0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+	ImGui::BeginChild("pers_curve", glm::vec2(0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
 
 	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail());
 	const glm::vec2 offset = glm::vec2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y + canvas_size.y);
-	const glm::vec2 mouse_pos = glm::vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
 	const glm::vec2 axis_range = glm::log(glm::vec2(persistence_range.y, npairs_range.y));
 	const glm::vec2 view_scale = glm::vec2(canvas_size.x / axis_range.x, -canvas_size.y / axis_range.y);
 
@@ -93,8 +96,32 @@ void PersistenceCurveWidget::draw_ui() {
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
 	ImGui::PopStyleVar(2);
+}
+void PersistenceCurveWidget::draw_persistence_diagram() {
+	ImGui::Text("Persistence Diagram...");
 
-	ImGui::End();
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2(0));
+	ImGui::PushStyleColor(ImGuiCol_ChildWindowBg, ImColor(60, 60, 70, 200));
+	ImGui::BeginChild("pers_diag", glm::vec2(0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+	
+	// TODO: Persistence Diagram
+	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail());
+	const glm::vec2 offset = glm::vec2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y + canvas_size.y);
+
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->PushClipRect(ImGui::GetCursorScreenPos(), glm::vec2(ImGui::GetCursorScreenPos()) + canvas_size);
+
+	draw_list->PopClipRect();
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(2);
+}
+void PersistenceCurveWidget::set_tree_type(const ttk::TreeType &type) {
+	if (tree_type != type) {
+		tree_type = type;
+		update();
+	}
 }
 void PersistenceCurveWidget::update() {
 	// Tree type mapping to persistence curve output index:
@@ -102,33 +129,37 @@ void PersistenceCurveWidget::update() {
 	// Morse Smale Curve: 1
 	// Split Tree: 2
 	// Contour Tree: 3
-	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(0)->Get(vtkDataObject::DATA_OBJECT()));
-	table->PrintSelf(std::cout, vtkIndent(2));
+	int tree = 0;
+	switch (tree_type) {
+		case ttk::TreeType::Contour: tree = 3; break;
+		case ttk::TreeType::Split: tree = 2; break;
+		case ttk::TreeType::Join: tree = 0; break;
+		default: break;
+	}
+	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(tree)->Get(vtkDataObject::DATA_OBJECT()));
 	vtkDataArray *persistence_col = dynamic_cast<vtkDataArray*>(table->GetColumn(0));
 	vtkDataArray *npairs_col = dynamic_cast<vtkDataArray*>(table->GetColumn(1));
-
-	persistence_range[0] = 1.f;
-	persistence_range[1] = persistence_col->GetRange()[1];
-	threshold_range = persistence_range;
 
 	assert(persistence_col->GetSize() == npairs_col->GetSize());
 	curve_points.clear();
 	curve_points.reserve(persistence_col->GetSize());
 
+	npairs_range = glm::vec2(std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity());
+	persistence_range = glm::vec2(1.f, -std::numeric_limits<float>::infinity());
 	std::map<float, size_t> pers_count;
 	for (vtkIdType i = 0; i < persistence_col->GetSize(); ++i) {
 		// It seems that often there are many entries with the same persistence value, count these up instead of making
 		// a bunch of dot lines
 		const float p = *persistence_col->GetTuple(i);
 		if (p > 0.f) {
-			pers_count[p] += *npairs_col->GetTuple(i);
+			persistence_range.y = std::max(persistence_range.y, p);
+			//pers_count[p] += *npairs_col->GetTuple(i);
+			const float n = *npairs_col->GetTuple(i);
+			npairs_range.x = std::min(npairs_range.x, static_cast<float>(n));
+			npairs_range.y = std::max(npairs_range.y, static_cast<float>(n));
+			curve_points.push_back(glm::vec2(p, n));
 		}
 	}
-
-	for (const auto &v : pers_count) {
-		npairs_range.x = std::min(npairs_range.x, static_cast<float>(v.second));
-		npairs_range.y = std::max(npairs_range.y, static_cast<float>(v.second));
-		curve_points.push_back(glm::vec2(v.first, v.second));
-	}
+	threshold_range = persistence_range;
 }
 

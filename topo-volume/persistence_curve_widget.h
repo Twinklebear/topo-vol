@@ -25,6 +25,7 @@ class PersistenceCurveWidget {
 	vtkSmartPointer<vtkThreshold> critical_pairs, persistent_pairs;
 	vtkSmartPointer<vtkTopologicalSimplification> simplification;
     vtkSmartPointer<vtkPersistenceCurve> vtkcurve;
+	ttk::TreeType tree_type;
 
 	// Data for the ui display
 	std::vector<glm::vec2> curve_points;
@@ -42,8 +43,12 @@ public:
      * @brief plot curve
      */
     void draw_ui();
+	// Set the tree type we should be showing the persistence curve for
+	void set_tree_type(const ttk::TreeType &type);
 
 private:
+	void draw_persistence_curve();
+	void draw_persistence_diagram();
     /**
      * @brief compute curve
      */
