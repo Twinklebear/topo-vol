@@ -174,6 +174,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 		tfcn.draw_ui();
 		tree_widget.draw_ui();
+		persistence_curve_widget.set_tree_type(tree_widget.get_tree_type());
 		persistence_curve_widget.draw_ui();
 
 		const auto &tree_selection = tree_widget.get_selection();

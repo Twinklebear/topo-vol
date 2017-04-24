@@ -254,6 +254,14 @@ void TreeWidget::Execute(vtkObject *caller, unsigned long event_id, void *call_d
 		caller->AddObserver(event_id, this);
 	}
 }
+ttk::TreeType TreeWidget::get_tree_type() const {
+	switch (tree_type) {
+		case 0: return ttk::TreeType::Contour;
+		case 1: return ttk::TreeType::Split;
+		case 2: return ttk::TreeType::Join;
+		default: return ttk::TreeType::Contour;
+	}
+}
 void TreeWidget::build_tree() {
 	branches.clear();
 	nodes.clear();

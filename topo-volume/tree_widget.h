@@ -61,6 +61,8 @@ public:
 			vtkTopologicalSimplification *simplification);
 	void draw_ui();
 	const std::vector<uint32_t>& get_selection() const;
+	// Get the current tree type
+	ttk::TreeType get_tree_type() const; 
 	void Execute(vtkObject *caller, unsigned long event_id, void *call_data) override;
 
 private:
