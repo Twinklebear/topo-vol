@@ -151,7 +151,6 @@ void PersistenceCurveWidget::update() {
 		const float p = *persistence_col->GetTuple(i);
 		if (p > 0.f) {
 			persistence_range.y = std::max(persistence_range.y, p);
-			//pers_count[p] += *npairs_col->GetTuple(i);
 			const float n = *npairs_col->GetTuple(i);
 			npairs_range.x = std::min(npairs_range.x, static_cast<float>(n));
 			npairs_range.y = std::max(npairs_range.y, static_cast<float>(n));
@@ -159,5 +158,6 @@ void PersistenceCurveWidget::update() {
 		}
 	}
 	threshold_range = persistence_range;
+	simplification->Update();
 }
 

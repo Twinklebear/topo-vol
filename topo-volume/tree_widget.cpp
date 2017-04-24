@@ -335,9 +335,12 @@ void TreeWidget::build_tree() {
 	std::unordered_map<float, size_t> node_val_count;
 	const glm::vec2 node_dims(116, 60);
 	const glm::vec2 node_spacing(24, 12);
+	nodes.resize(node_points->GetNumberOfPoints(), TreeNode());
+	std::cout << "# of node points = " << node_points->GetNumberOfPoints() << "\n";
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
 		int idx = 0;
-		TreeNode n;
+		const int node_id = node_attribs->GetArray("NodeIdentifier", idx)->GetTuple(i)[0];
+		TreeNode &n = nodes[node_id];
 		double pt_pos[3];
 		node_points->GetPoint(i, pt_pos);
 		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
@@ -355,13 +358,12 @@ void TreeWidget::build_tree() {
 		for (auto &b : branches) {
 			if (b.start == n.pos) {
 				n.exiting_branches.push_back(b.segmentation_id);
-				b.start_node = i;
+				b.start_node = node_id;
 			} else if (b.end == n.pos) {
 				n.entering_branches.push_back(b.segmentation_id);
-				b.end_node = i;
+				b.end_node = node_id;
 			}
 		}
-		nodes.push_back(n);
 	}
 
 	// Go through all start/end points and find entering/exiting branches to build connectivity
