@@ -29,16 +29,28 @@
 
 static size_t WIN_WIDTH = 1280;
 static size_t WIN_HEIGHT = 720;
+static unsigned int debuglevel = 0;
+static unsigned int numofthread = 8; // ttk can't get thread number correctly on KNL
 
 void run_app(SDL_Window *win, const std::vector<std::string> &args);
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
-
+void DefaultCommands(int argc, const char **argv) {
+    for (int i = 1; i < argc; ++i) {
+	std::string str(argv[i]);
+	if (str.compare("-debug") == 0) {
+	    debuglevel = std::stoi(argv[++i]);
+	}
+	if (str.compare("-numThread") == 0 || str.compare("-j") == 0) {
+	    numofthread = std::stoi(argv[++i]);	
+	}
+    }
+}
 int main(int argc, const char **argv) {
+        DefaultCommands(argc, argv);
 	SDL_Window *win = nullptr;
 	SDL_GLContext ctx = nullptr;
 	setup_window(win, ctx);
 	run_app(win, std::vector<std::string>(argv, argv + argc));
-
 	ImGui_ImplSdlGL3_Shutdown();
 	SDL_GL_DeleteContext(ctx);
 	SDL_DestroyWindow(win);
@@ -53,7 +65,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	reader->Update();
 	vtkImageData *vol = reader->GetOutput();
 	assert(vol);
-	std::cout << "loaded img '" << args[1] << "'\n";
+	std::cout << "loaded vtk image data '" << args[1] << "'\n";
 
 	vtkSmartPointer<vtkPersistenceDiagram> diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
 	diagram->SetInputConnection(reader->GetOutputPort());
@@ -122,7 +134,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// Setup transfer function and volume
 	TransferFunction tfcn;
 	TreeWidget tree_widget(contour_forest);
-	PersistenceCurveWidget persistence_curve_widget;
 	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = volume.histogram;
 
@@ -136,6 +147,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// each other and splitting. The points come in the same order as the arcs,
 	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
 	// Can also check the point locations for the node/arc points to confirm this.
+	PersistenceCurveWidget persistence_curve_widget(reader->GetOutput(), debuglevel, numofthread);
 
 	bool ui_hovered = false;
 	bool quit = false;
