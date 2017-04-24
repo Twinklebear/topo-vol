@@ -158,6 +158,7 @@ void PersistenceCurveWidget::update() {
 		}
 	}
 	threshold_range = persistence_range;
+	persistent_pairs->ThresholdBetween(threshold_range[0], threshold_range[1]);
 	simplification->Update();
 }
 
