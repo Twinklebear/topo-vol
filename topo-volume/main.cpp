@@ -107,6 +107,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->SetArcResolution(20);
 	contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
+    contour_forest->SetUseAllCores(true);
+	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
 
 	// Setup transfer function and volume
 	TransferFunction tfcn;

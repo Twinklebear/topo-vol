@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <thread>
 #include <iostream>
 #include <glm/ext.hpp>
 #include <vtkIndent.h>
@@ -26,6 +27,8 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
 
 	// Simplifying the input data to remove non-persistent pairs
 	simplification = vtkSmartPointer<vtkTopologicalSimplification>::New();
+	simplification->SetUseAllCores(true);
+	simplification->SetThreadNumber(std::thread::hardware_concurrency());
 	simplification->SetInputConnection(0, input->GetOutputPort());
 	simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
 
@@ -35,6 +38,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
     vtkcurve->SetInputConnection(input->GetOutputPort());
     vtkcurve->SetComputeSaddleConnectors(false);
     vtkcurve->SetUseAllCores(true);
+	vtkcurve->SetThreadNumber(std::thread::hardware_concurrency());
     vtkcurve->Update();
 	update();
 }
@@ -82,13 +86,14 @@ void PersistenceCurveWidget::draw_persistence_curve() {
 		draw_list->AddLine(offset + view_scale * a, offset + view_scale * b, ImColor(255, 255, 255), 2.0f);
 	}
 
-	// Draw threshold lines
-	for (size_t i = 0; i < 2; ++i) {
-		const float v = std::log(threshold_range[i]) * view_scale.x + offset.x;
+	// Draw threshold line
+	{
+		const float v = std::log(threshold_range.x) * view_scale.x + offset.x;
 		const glm::vec2 a = glm::vec2(v, offset.y);
 		const glm::vec2 b = glm::vec2(v, offset.y - canvas_size.y);
 		draw_list->AddLine(a, b, ImColor(0.8f, 0.8f, 0.2f, 1.f), 2.f);
-	}	    
+	}
+
 	draw_list->PopClipRect();
 
 	ImGui::EndChild();
