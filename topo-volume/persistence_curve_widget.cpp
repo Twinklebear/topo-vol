@@ -22,7 +22,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
 	persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
 	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
 	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
-	persistent_pairs->ThresholdBetween(0, 999999);
+	persistent_pairs->ThresholdBetween(1, 999999);
 
 	// Simplifying the input data to remove non-persistent pairs
 	simplification = vtkSmartPointer<vtkTopologicalSimplification>::New();
@@ -50,12 +50,10 @@ void PersistenceCurveWidget::draw_ui() {
 }
 void PersistenceCurveWidget::draw_persistence_curve() {
 	ImGui::Text("Persistence Range [%.2f, %.2f]", persistence_range.x, persistence_range.y);
-	ImGui::SliderFloat("Min", &threshold_range[0], persistence_range.x, persistence_range.y, "%.3f", glm::e<float>());
+	ImGui::SliderFloat("Threshold", &threshold_range[0], persistence_range.x,
+			persistence_range.y, "%.3f", glm::e<float>());
 	// Keep values in range
 	threshold_range.y = glm::max(threshold_range.x, threshold_range.y);
-
-	ImGui::SliderFloat("Max", &threshold_range[1], persistence_range.x, persistence_range.y, "%.3f", glm::e<float>());
-	threshold_range.x = glm::min(threshold_range.x, threshold_range.y);
 
 	// If we changed our selection update the display in the other widgets
 	if (ImGui::Button("Apply")) {
