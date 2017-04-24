@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include <cstdint>
+
+#define ImDrawIdx uint32_t
+
 //---- Define assertion handler. Defaults to calling assert().
 //#define IM_ASSERT(_EXPR)  MyAssert(_EXPR)
 
