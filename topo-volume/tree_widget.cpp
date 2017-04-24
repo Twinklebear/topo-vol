@@ -65,7 +65,7 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
 	return os;
 }
 
-TreeWidget::TreeWidget(vtkSmartPointer<vtkContourForests> cf)
+TreeWidget::TreeWidget(vtkSmartPointer<vtkContourForests> cf, vtkTopologicalSimplification *simplification)
 	: contour_forest(cf), tree_type(ttk::TreeType::Split), tree_arcs(nullptr), tree_nodes(nullptr),
 	zoom_amount(1.f), scrolling(0.f)
 {
@@ -74,6 +74,7 @@ TreeWidget::TreeWidget(vtkSmartPointer<vtkContourForests> cf)
 	cf->Update();
 	build_tree();
 	cf->AddObserver(vtkCommand::EndEvent, this);
+	simplification->AddObserver(vtkCommand::EndEvent, this);
 }
 bool point_on_line(const glm::vec2 &start, const glm::vec2 &end, const glm::vec2 &point) {
 	const float click_dist = 4;
@@ -241,7 +242,17 @@ const std::vector<uint32_t>& TreeWidget::get_selection() const {
 }
 void TreeWidget::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
 	std::cout << __PRETTY_FUNCTION__  << " event: '" << vtkCommand::GetStringFromEventId(event_id) << "'\n";
-	build_tree();
+	// If the contour forest filter called us, update the tree. Otherwise the simplification changed
+	// and we should recompute the tree now.
+	if (caller == contour_forest.Get()) {
+		build_tree();
+	} else {
+		// It seems that updating the contour forest re-updates the simplification (who just called us),
+		// so remove us as an observer before updating CF, then re-add us.
+		caller->RemoveObserver(this);
+		contour_forest->Update();
+		caller->AddObserver(event_id, this);
+	}
 }
 void TreeWidget::build_tree() {
 	branches.clear();
@@ -252,16 +263,18 @@ void TreeWidget::build_tree() {
 
 	tree_nodes = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(0));
 	tree_arcs = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(1));
-	assert(tree_arcs);
 	assert(tree_nodes);
+	assert(tree_arcs);
 
 	vtkDataSetAttributes *point_attribs = tree_arcs->GetAttributes(vtkDataSet::POINT);
 	vtkPoints *points = tree_arcs->GetPoints();
-	assert(points);
 
 	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
 	vtkCellArray *lines = tree_arcs->GetLines();
-	assert(lines);
+	if (!points || !lines) {
+		std::cout << "Empty selection\n";
+		return;
+	}
 
 	int idx = 0;
 	vtkDataArray *pt_img_file = point_attribs->GetArray("ImageFile", idx);

@@ -61,46 +61,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	reader->Update();
 	vtkImageData *vol = reader->GetOutput();
 	assert(vol);
-	std::cout << "loaded vtk image data '" << args[1] << "'\n";
-
-	vtkSmartPointer<vtkPersistenceDiagram> diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
-	diagram->SetInputConnection(reader->GetOutputPort());
-	diagram->Update();
-
-	// Select critical pairs
-	{
-		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::CELL);
-		fields->PrintSelf(std::cout, vtkIndent(2));
-		int idx = 0;
-		vtkDataArray *data = fields->GetArray("PairIdentifier", idx);
-		vtkDataArray *pers_data = fields->GetArray("Persistence", idx);
-		std::cout << "Pair id range = [" << data->GetRange()[0] << ", " << data->GetRange()[1] << "]\n"
-			"Persistence = [" << pers_data->GetRange()[0] << ", " << pers_data->GetRange()[1] << "]\n";
-	}
-	vtkSmartPointer<vtkThreshold> critical_pairs = vtkSmartPointer<vtkThreshold>::New();
-	critical_pairs->SetInputConnection(diagram->GetOutputPort());
-	critical_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "PairIdentifier");
-	critical_pairs->ThresholdBetween(-0.1, 999999);
-
-	// Select the most persistent pairs
-	vtkSmartPointer<vtkThreshold> persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
-	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
-	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
-	persistent_pairs->ThresholdBetween(0, 999999);
-
-	// 6. simplifying the input data to remove non-persistent pairs
-	vtkSmartPointer<vtkTopologicalSimplification> simplification =
-		vtkSmartPointer<vtkTopologicalSimplification>::New();
-	simplification->SetInputConnection(0, reader->GetOutputPort());
-	simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
-
-	vtkSmartPointer<vtkContourForests> contour_forest
-		= vtkSmartPointer<vtkContourForests>::New();
-	contour_forest->SetInputConnection(simplification->GetOutputPort());
-	contour_forest->SetUseInputOffsetScalarField(true);
-	contour_forest->SetArcResolution(20);
-	contour_forest->SetSkeletonSmoothing(50);
-	contour_forest->SetUseAllCores(true);
 
 	std::shared_ptr<glt::BufferAllocator> allocator = std::make_shared<glt::BufferAllocator>(size_t(64e6));
 
@@ -127,12 +87,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		viewing_buf.unmap(GL_UNIFORM_BUFFER);
 	}
 
-	// Setup transfer function and volume
-	TransferFunction tfcn;
-	TreeWidget tree_widget(contour_forest);
-	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
-	tfcn.histogram = volume.histogram;
-
 	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
 	// in this widget and select those segments in the volume rendering.
 	// The volume rendering picking can be done by looking up the same voxel position
@@ -143,7 +97,21 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// each other and splitting. The points come in the same order as the arcs,
 	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
 	// Can also check the point locations for the node/arc points to confirm this.
-	PersistenceCurveWidget persistence_curve_widget(reader->GetOutput(), debuglevel);
+	PersistenceCurveWidget persistence_curve_widget(reader);
+
+	vtkSmartPointer<vtkContourForests> contour_forest
+		= vtkSmartPointer<vtkContourForests>::New();
+	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
+	contour_forest->SetUseInputOffsetScalarField(true);
+	contour_forest->SetArcResolution(20);
+	contour_forest->SetSkeletonSmoothing(50);
+	contour_forest->SetUseAllCores(true);
+
+	// Setup transfer function and volume
+	TransferFunction tfcn;
+	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
+	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
+	tfcn.histogram = volume.histogram;
 
 	bool ui_hovered = false;
 	bool quit = false;

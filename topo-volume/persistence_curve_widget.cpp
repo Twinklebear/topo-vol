@@ -5,6 +5,50 @@
 #include <vtkVariant.h>
 #include "persistence_curve_widget.h"
 
+PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input) {
+	diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
+	diagram->SetInputConnection(input->GetOutputPort());
+
+	{
+		diagram->Update();
+		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::CELL);
+		fields->PrintSelf(std::cout, vtkIndent(2));
+		int idx = 0;
+		vtkDataArray *data = fields->GetArray("PairIdentifier", idx);
+		vtkDataArray *pers_data = fields->GetArray("Persistence", idx);
+		std::cout << "Pair id range = [" << data->GetRange()[0] << ", " << data->GetRange()[1] << "]\n"
+			"Persistence = [" << pers_data->GetRange()[0] << ", " << pers_data->GetRange()[1] << "]\n";
+	}
+
+	// Compute critical points
+	critical_pairs = vtkSmartPointer<vtkThreshold>::New();
+	critical_pairs->SetInputConnection(diagram->GetOutputPort());
+	critical_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "PairIdentifier");
+	critical_pairs->ThresholdBetween(-0.1, 999999);
+
+	// Select the most persistent pairs
+	persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
+	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
+	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
+	persistent_pairs->ThresholdBetween(0, 999999);
+
+	// Simplifying the input data to remove non-persistent pairs
+	simplification = vtkSmartPointer<vtkTopologicalSimplification>::New();
+	simplification->SetInputConnection(0, input->GetOutputPort());
+	simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
+
+	// We always show the full curve, without simplfication for the
+	// selected tree type
+    vtkcurve = vtkSmartPointer<vtkPersistenceCurve>::New();
+    vtkcurve->SetInputConnection(input->GetOutputPort());
+    vtkcurve->SetComputeSaddleConnectors(false);
+    vtkcurve->SetUseAllCores(true);
+    vtkcurve->Update();
+	update();
+}
+vtkTopologicalSimplification* PersistenceCurveWidget::get_simplification() const {
+	return simplification.Get();
+}
 void PersistenceCurveWidget::draw(const char* label, CurveData& curve)
 {
     if (ImGui::Begin(label)) 
@@ -30,8 +74,22 @@ void PersistenceCurveWidget::draw(const char* label, CurveData& curve)
 		}
 
 		// draw two sliders
-		ImGui::SliderFloat("min persistence", &curve.threshold[0], curve.data_min[0], curve.data_max[0]);
-		ImGui::SliderFloat("max persistence", &curve.threshold[1], curve.data_min[0], curve.data_max[0]);
+		bool persistence_updated = ImGui::SliderFloat("min persistence", &curve.threshold[0],
+				//0, 498);
+				//curve.data_min[0], curve.data_max[0]);
+		persistence_updated |= ImGui::SliderFloat("max persistence", &curve.threshold[1],
+				//0, 498);
+				curve.data_min[0], curve.data_max[0]);
+		// TODO WILL: These values are not in the right range. Why is the plot being drawn this way.
+		if (persistence_updated) {
+			std::cout << "It changed\n";
+			if (curve.threshold[1] < curve.threshold[0]) {
+				curve.threshold[1] = curve.threshold[0];
+			}
+			//persistent_pairs->ThresholdBetween(curve.threshold[0], curve.threshold[1]);
+			persistent_pairs->ThresholdBetween(curve.threshold[0], curve.threshold[1]);
+			simplification->Update();
+		}
 
 		// draw rect
 		const int offset = 40;
@@ -73,16 +131,8 @@ void PersistenceCurveWidget::draw(const char* label, CurveData& curve)
     ImGui::End();
 }
 
-int PersistenceCurveWidget::compute(vtkDataSet* input)
+int PersistenceCurveWidget::update()
 {
-    std::cout << "[PersistenceCurve] start" << std::endl;
-    vtkcurve = vtkSmartPointer<vtkPersistenceCurve>::New();
-    vtkcurve->SetInputData(input);
-    vtkcurve->SetComputeSaddleConnectors(false);
-    vtkcurve->SetUseAllCores(true);
-    vtkcurve->SetdebugLevel_(debuglevel);
-    vtkcurve->Update();
-
     std::cout << "[computing curve] start" << std::endl;
 	// Tree type mapping to persistence curve output index:
 	// Join Tree: 0
@@ -90,6 +140,7 @@ int PersistenceCurveWidget::compute(vtkDataSet* input)
 	// Split Tree: 2
 	// Contour Tree: 3
 	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(3)->Get(vtkDataObject::DATA_OBJECT()));
+	table->PrintSelf(std::cout, vtkIndent(2));
     for(vtkIdType r = 0; r < table->GetNumberOfRows(); r++)
     {
 	// x axis: persistence
