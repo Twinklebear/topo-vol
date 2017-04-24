@@ -53,7 +53,7 @@ void PersistenceCurveWidget::draw_persistence_curve() {
 	ImGui::SliderFloat("Threshold", &threshold_range[0], persistence_range.x,
 			persistence_range.y, "%.3f", glm::e<float>());
 	// Keep values in range
-	threshold_range.y = glm::max(threshold_range.x, threshold_range.y);
+	threshold_range[0] = glm::max(threshold_range[0], persistence_range.x);
 
 	// If we changed our selection update the display in the other widgets
 	if (ImGui::Button("Apply")) {
