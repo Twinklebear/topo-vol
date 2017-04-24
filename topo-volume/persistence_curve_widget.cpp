@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <glm/ext.hpp>
 #include <vtkIndent.h>
 #include <vtkTable.h>
 #include <vtkVariant.h>
@@ -8,17 +9,6 @@
 PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input) {
 	diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
 	diagram->SetInputConnection(input->GetOutputPort());
-
-	{
-		diagram->Update();
-		vtkDataSetAttributes *fields = diagram->GetOutput()->GetAttributes(vtkDataSet::CELL);
-		fields->PrintSelf(std::cout, vtkIndent(2));
-		int idx = 0;
-		vtkDataArray *data = fields->GetArray("PairIdentifier", idx);
-		vtkDataArray *pers_data = fields->GetArray("Persistence", idx);
-		std::cout << "Pair id range = [" << data->GetRange()[0] << ", " << data->GetRange()[1] << "]\n"
-			"Persistence = [" << pers_data->GetRange()[0] << ", " << pers_data->GetRange()[1] << "]\n";
-	}
 
 	// Compute critical points
 	critical_pairs = vtkSmartPointer<vtkThreshold>::New();
@@ -49,116 +39,96 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
 vtkTopologicalSimplification* PersistenceCurveWidget::get_simplification() const {
 	return simplification.Get();
 }
-void PersistenceCurveWidget::draw(const char* label, CurveData& curve)
-{
-    if (ImGui::Begin(label)) 
-    {
-        curve.ID = ImGui::GetID(label);
-
-		// draw button
-		ImGui::Checkbox("X log scale", &xlog);
-		ImGui::SameLine();
-		ImGui::Checkbox("y log scale", &ylog);
-		std::string mode = "current scale: ";
-		if (xlog && ylog) {
-			curve_idx = 4;
-		} 
-		else if (xlog) {
-			curve_idx = 3;
-		} 
-		else if (ylog) {
-			curve_idx = 2;
-		} 
-		else {
-			curve_idx = 1;
-		}
-
-		// draw two sliders
-		bool persistence_updated = ImGui::SliderFloat("min persistence", &curve.threshold[0],
-				//0, 498);
-				//curve.data_min[0], curve.data_max[0]);
-		persistence_updated |= ImGui::SliderFloat("max persistence", &curve.threshold[1],
-				//0, 498);
-				curve.data_min[0], curve.data_max[0]);
-		// TODO WILL: These values are not in the right range. Why is the plot being drawn this way.
-		if (persistence_updated) {
-			std::cout << "It changed\n";
-			if (curve.threshold[1] < curve.threshold[0]) {
-				curve.threshold[1] = curve.threshold[0];
-			}
-			//persistent_pairs->ThresholdBetween(curve.threshold[0], curve.threshold[1]);
-			persistent_pairs->ThresholdBetween(curve.threshold[0], curve.threshold[1]);
-			simplification->Update();
-		}
-
-		// draw rect
-		const int offset = 40;
-		const glm::vec2 canvas_pos (ImGui::GetCursorScreenPos().x,    ImGui::GetCursorScreenPos().y + offset);
-		const glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y - offset);
-		const glm::vec2 view_scale (canvas_size.x, -canvas_size.y);
-		const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
-
-		ImDrawList *draw_list = ImGui::GetWindowDrawList();
-		draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 0, 255));
-		draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
-
-		// draw curve
-		const glm::vec2 scale = (curve.data_max - curve.data_min);
-		// curve
-		for (int i = 0; i < static_cast<int>(curve.data.size())-1; ++i) {
-			const glm::vec2 ra = (curve.data[i]   - curve.data_min);
-			const glm::vec2 rb = (curve.data[i+1] - curve.data_min);
-			const glm::vec2 a(ra[0] / scale[0], ra[1] / scale[1]);
-			const glm::vec2 b(rb[0] / scale[0], rb[1] / scale[1]);
-			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, curve.color, 2.0f);
-		}
-		// threshold left
-		{
-			float v = (curve.threshold[0] - curve.data_min[0]) / scale[0];
-			const glm::vec2 a(v, 0.0f);
-			const glm::vec2 b(v, 1.0f);
-			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
-		}	    
-		// threshold right
-		{
-			float v = (curve.threshold[1] - curve.data_min[0]) / scale[0];
-			const glm::vec2 a(v, 0.0f);
-			const glm::vec2 b(v, 1.0f);
-			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b, 0xff0000ff, 2.0f);
-		}	    
-		draw_list->PopClipRect();
+void PersistenceCurveWidget::draw_ui() {
+	if (!ImGui::Begin("Persistence Curve")) {
+		ImGui::End();
+		return;
 	}
-    ImGui::End();
-}
 
-int PersistenceCurveWidget::update()
-{
-    std::cout << "[computing curve] start" << std::endl;
+	// TODO: Switch to an apply button
+	const bool persistence_updated = ImGui::SliderFloat2("Persistence Range", &threshold_range[0],
+			persistence_range.x, persistence_range.y);
+	// If we changed our selection update the display in the other widgets
+	if (persistence_updated) {
+		// Keep values in range
+		threshold_range.x = glm::max(threshold_range.x, persistence_range.x);
+		threshold_range.y = glm::max(threshold_range.x, threshold_range.y);
+		threshold_range.y = glm::min(threshold_range.y, persistence_range.y);
+
+		persistent_pairs->ThresholdBetween(threshold_range[0], threshold_range[1]);
+		simplification->Update();
+	}
+
+	// Draw the persistence plot
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2(0));
+	ImGui::PushStyleColor(ImGuiCol_ChildWindowBg, ImColor(60, 60, 70, 200));
+	ImGui::BeginChild("tree_region", glm::vec2(0), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove);
+
+	const glm::vec2 canvas_size(ImGui::GetContentRegionAvail());
+	const glm::vec2 offset = glm::vec2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y + canvas_size.y);
+	const glm::vec2 mouse_pos = glm::vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+	const glm::vec2 axis_range = glm::log(glm::vec2(persistence_range.y, npairs_range.y));
+	const glm::vec2 view_scale = glm::vec2(canvas_size.x / axis_range.x, -canvas_size.y / axis_range.y);
+
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->PushClipRect(ImGui::GetCursorScreenPos(), glm::vec2(ImGui::GetCursorScreenPos()) + canvas_size);
+
+	// Draw curve
+	for (size_t i = 0; !curve_points.empty() && i < curve_points.size() - 1; ++i) {
+		const glm::vec2 a = glm::log(curve_points[i]);
+		const glm::vec2 b = glm::log(curve_points[i + 1]);
+		draw_list->AddLine(offset + view_scale * a, offset + view_scale * b, ImColor(255, 255, 255), 2.0f);
+	}
+
+	// Draw threshold lines
+	for (size_t i = 0; i < 2; ++i) {
+		const float v = std::log(threshold_range[i]) * view_scale.x + offset.x;
+		const glm::vec2 a = glm::vec2(v, offset.y);
+		const glm::vec2 b = glm::vec2(v, offset.y - canvas_size.y);
+		draw_list->AddLine(a, b, ImColor(0.8f, 0.8f, 0.2f, 1.f), 2.f);
+	}	    
+	draw_list->PopClipRect();
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
+	ImGui::PopStyleVar(2);
+
+	ImGui::End();
+}
+void PersistenceCurveWidget::update() {
 	// Tree type mapping to persistence curve output index:
 	// Join Tree: 0
 	// Morse Smale Curve: 1
 	// Split Tree: 2
 	// Contour Tree: 3
-	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(3)->Get(vtkDataObject::DATA_OBJECT()));
+	vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(0)->Get(vtkDataObject::DATA_OBJECT()));
 	table->PrintSelf(std::cout, vtkIndent(2));
-    for(vtkIdType r = 0; r < table->GetNumberOfRows(); r++)
-    {
-	// x axis: persistence
-	// y axis: number of pairs
-	glm::vec2 curr(table->GetValue(r,0).ToFloat(), table->GetValue(r,1).ToFloat());
-	// linear interpolate in between two values
-	if (curr[0] > -0.1f && curr[1] > -0.1f) { // skip first entry
-	    curves[1].AddValue(curr);	
+	vtkDataArray *persistence_col = dynamic_cast<vtkDataArray*>(table->GetColumn(0));
+	vtkDataArray *npairs_col = dynamic_cast<vtkDataArray*>(table->GetColumn(1));
+
+	persistence_range[0] = 1.f;
+	persistence_range[1] = persistence_col->GetRange()[1];
+	threshold_range = persistence_range;
+
+	assert(persistence_col->GetSize() == npairs_col->GetSize());
+	curve_points.clear();
+	curve_points.reserve(persistence_col->GetSize());
+
+	std::map<float, size_t> pers_count;
+	for (vtkIdType i = 0; i < persistence_col->GetSize(); ++i) {
+		// It seems that often there are many entries with the same persistence value, count these up instead of making
+		// a bunch of dot lines
+		const float p = *persistence_col->GetTuple(i);
+		if (p > 0.f) {
+			pers_count[p] += *npairs_col->GetTuple(i);
+		}
 	}
-	// log interpolate in between two values
-	if (curr[0] > 0.0f && curr[1] > 0.0f) { // skip first entry
-	    curves[2].AddValue(curr[0], glm::log(curr[1]));
-	    curves[3].AddValue(glm::log(curr[0]), curr[1]);
-	    curves[4].AddValue(glm::log(curr));
+
+	for (const auto &v : pers_count) {
+		npairs_range.x = std::min(npairs_range.x, static_cast<float>(v.second));
+		npairs_range.y = std::max(npairs_range.y, static_cast<float>(v.second));
+		curve_points.push_back(glm::vec2(v.first, v.second));
 	}
-    }
-    std::cout << "[computing curve] finish adding points" << std::endl;     
-    std::cout << "[computing curve] Number of Rows: " << table->GetNumberOfRows() << std::endl;
-    std::cout << "[computing curve] Number of Columns: " << table->GetNumberOfColumns() << std::endl;
-    return 0;
 }
+

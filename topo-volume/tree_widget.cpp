@@ -307,8 +307,9 @@ void TreeWidget::build_tree() {
 		}
 		current_branch.end = end_pos;
 		current_branch.end_val = end_val;
-		current_branch.start_node = -1;
-		current_branch.end_node = -1;
+		// TODO: In a case with 2 nodes and 1 branch, we don't set the start/end nodes?
+		current_branch.start_node = 0;
+		current_branch.end_node = 0;
 	}
 	// Push on the last segmentation
 	branches[current_branch.segmentation_id] = current_branch;
