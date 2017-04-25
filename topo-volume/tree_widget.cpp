@@ -122,6 +122,7 @@ void TreeWidget::draw_ui() {
 
 	// Display the graph links, in background
 	draw_list->ChannelsSetCurrent(0);
+	size_t branch_selection = -1;
 	for (const auto &b : branches) {
 		// Skip weird crap branches we get on some noisy data
 		if (b.start_node >= nodes.size() || b.end_node >= nodes.size()) {
@@ -136,16 +137,9 @@ void TreeWidget::draw_ui() {
 			!= selected_segmentations.end();
 		const ImColor color = selected ? ImColor(0.9f, 0.9f, 0.2f, 1.f) : ImColor(0.8f, 0.8f, 0.1f, 0.5f);
 		draw_list->AddLine(p1, p2, color, 2.f);
+
 		if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && point_on_line(p1, p2, mouse_pos)) {
-			if (!ImGui::GetIO().KeyCtrl) {
-				selected_segmentations.clear();
-			}
-			auto fnd = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.segmentation_id);
-			if (fnd != selected_segmentations.end()) {
-				selected_segmentations.erase(fnd);
-			} else if (!selected) {
-				selected_segmentations.push_back(b.segmentation_id);
-			}
+			branch_selection = b.segmentation_id;
 		}
 	}
 
@@ -174,20 +168,8 @@ void TreeWidget::draw_ui() {
 		draw_list->ChannelsSetCurrent(0);
 		ImGui::SetCursorScreenPos(rect_start);
 		ImGui::InvisibleButton("node", n.ui_size);
-		if (ImGui::IsItemActive()) {
-			if (ImGui::IsMouseDragging(0)) {
-				n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
-			} else if (ImGui::IsMouseClicked(0)) {
-				if (!ImGui::GetIO().KeyCtrl) {
-					selected_segmentations.clear();
-				}
-				for (const auto &x : n.entering_branches) {
-					selected_segmentations.push_back(x);
-				}
-				for (const auto &x : n.exiting_branches) {
-					selected_segmentations.push_back(x);
-				}
-			}
+		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0)) {
+			n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
 		}
 
 		const glm::vec2 rect_end = rect_start + n.ui_size;
@@ -206,8 +188,23 @@ void TreeWidget::draw_ui() {
 	}
 	draw_list->ChannelsMerge();
 
-	if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive() && ImGui::IsMouseDragging(2, 0.f)) {
-		scrolling -= glm::vec2(ImGui::GetIO().MouseDelta);
+	if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive()) {
+		if (ImGui::IsMouseDragging(2, 0.f)) {
+			scrolling -= glm::vec2(ImGui::GetIO().MouseDelta);
+		} else if (branch_selection != size_t(-1)) {
+			auto fnd = std::find(selected_segmentations.begin(), selected_segmentations.end(), branch_selection);
+			const bool was_selected = fnd != selected_segmentations.end();
+			if (!ImGui::GetIO().KeyCtrl) {
+				selected_segmentations.clear();
+				fnd = selected_segmentations.end();
+			}
+
+			if (fnd != selected_segmentations.end()) {
+				selected_segmentations.erase(fnd);
+			} else if (!was_selected) {
+				selected_segmentations.push_back(branch_selection);
+			}
+		}
 	}
 
 	ImGui::PopItemWidth();
@@ -287,6 +284,8 @@ void TreeWidget::build_tree() {
 	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
 
 	Branch current_branch;
+	current_branch.start_val = pt_img_file->GetTuple(0)[0];
+	current_branch.end_val = pt_img_file->GetTuple(1)[0];
 	current_branch.segmentation_id = line_seg_id->GetTuple(0)[0];
 	for (size_t i = 0; i < lines->GetNumberOfCells(); ++i) {
 		const size_t seg = line_seg_id->GetTuple(i)[0];
@@ -362,16 +361,9 @@ void TreeWidget::build_tree() {
 	}
 	std::cout << "Built nodes" << std::endl;
 
-	// Go through all branches and make sure we aren't missing any nodes, and fix up any
-	// nans or other crap we might have gotten back
+	// Go through all branches and make sure we aren't missing any nodes, sometimes
+	// the node positions don't seem to be in the right spot.
 	for (auto &b : branches) {
-		// Sometimes on tooth I get nans for branch start values?
-		if (!std::isfinite(b.start_val)) {
-			b.start_val = 0;
-		}
-		if (!std::isfinite(b.end_val)) {
-			b.end_val = 0;
-		}
 		if (b.start_node >= nodes.size()) {
 			// Find the node it should be connected too, hopefully
 			auto fnd = std::find_if(nodes.begin(), nodes.end(),
