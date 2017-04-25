@@ -63,12 +63,11 @@ Volume::Volume(vtkImageData *vol, const std::string &array_name)
 	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
 	for (size_t i = 0; i < 3; ++i) {
 		dims[i] = vol->GetDimensions()[i];
-		vol_render_size[i] = vol->GetSpacing()[i];
+		vol_render_size[i] = vol->GetSpacing()[i] * dims[i];
 	}
 	std::cout << "dims = { " << dims[0] << ", " << dims[1] << ", " << dims[2] << " }\n";
 	// Center the volume in the world
-	translate(glm::vec3(vol_render_size[0], vol_render_size[1], vol_render_size[2])
-			* glm::vec3(-0.5));
+	translate(glm::vec3(vol_render_size[0], vol_render_size[1], vol_render_size[2]) * glm::vec3(-0.5));
 	build_histogram();
 }
 Volume::~Volume(){
