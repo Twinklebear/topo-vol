@@ -366,16 +366,26 @@ void TreeWidget::build_tree() {
 		if (b.start_node >= nodes.size()) {
 			// Find the node it should be connected too, hopefully
 			auto fnd = std::find_if(nodes.begin(), nodes.end(),
-					[&](const TreeNode &n) { return std::abs(n.value - b.start_val) < 0.0001; });
-			b.start_node = std::distance(nodes.begin(), fnd);
-			fnd->exiting_branches.push_back(b.segmentation_id);
+					[&](const TreeNode &n) { return std::abs(n.value - b.start_val) < 0.001; });
+			if (fnd != nodes.end()) {
+				b.start_node = std::distance(nodes.begin(), fnd);
+				fnd->exiting_branches.push_back(b.segmentation_id);
+			} else {
+				b.start_node = 0;
+				nodes[0].exiting_branches.push_back(b.segmentation_id);
+			}
 		}
 		if (b.end_node >= nodes.size()) {
 			// Find the node it should be connected too, hopefully
 			auto fnd = std::find_if(nodes.begin(), nodes.end(),
-					[&](const TreeNode &n) { return std::abs(n.value - b.end_val) < 0.0001; });
-			b.end_node = std::distance(nodes.begin(), fnd);
-			fnd->entering_branches.push_back(b.segmentation_id);
+					[&](const TreeNode &n) { return std::abs(n.value - b.end_val) < 0.001; });
+			if (fnd != nodes.end()) {
+				b.end_node = std::distance(nodes.begin(), fnd);
+				fnd->entering_branches.push_back(b.segmentation_id);
+			} else {
+				b.end_node = nodes.size() - 1;
+				nodes.back().entering_branches.push_back(b.segmentation_id);
+			}
 		}
 	}
 	std::cout << "Ui graph is done being built" << std::endl;
