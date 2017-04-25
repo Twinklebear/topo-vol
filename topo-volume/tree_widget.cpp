@@ -123,8 +123,10 @@ void TreeWidget::draw_ui() {
 	// Display the graph links, in background
 	draw_list->ChannelsSetCurrent(0);
 	for (const auto &b : branches) {
-		assert(b.start_node < nodes.size());
-		assert(b.end_node < nodes.size());
+		// Skip weird crap branches we get on some noisy data
+		if (b.start_node >= nodes.size() || b.end_node >= nodes.size()) {
+			continue;
+		}
 		const TreeNode &start = nodes[b.start_node];
 		const TreeNode &end = nodes[b.end_node];
 		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
