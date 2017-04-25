@@ -257,7 +257,6 @@ void Volume::toggle_isosurface(bool on) {
 	show_isosurface = on;
 }
 void Volume::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
-	std::cout << __PRETTY_FUNCTION__  << " event: '" << vtkCommand::GetStringFromEventId(event_id) << "'\n";
 	uploaded = false;
 }
 void Volume::build_histogram(){

@@ -233,7 +233,6 @@ const std::vector<uint32_t>& TreeWidget::get_selection() const {
 	return selected_segmentations;
 }
 void TreeWidget::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
-	std::cout << __PRETTY_FUNCTION__  << " event: '" << vtkCommand::GetStringFromEventId(event_id) << "'\n";
 	// If the contour forest filter called us, update the tree. Otherwise the simplification changed
 	// and we should recompute the tree now.
 	if (caller == contour_forest.Get()) {
