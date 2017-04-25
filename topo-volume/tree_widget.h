@@ -25,6 +25,7 @@ struct Branch {
 std::ostream& operator<<(std::ostream &os, const Branch &b);
 
 struct TreeNode {
+	size_t node_id;
 	glm::uvec3 pos;
 	float value;
 	size_t type;

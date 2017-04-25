@@ -132,6 +132,8 @@ void TreeWidget::draw_ui() {
 	// Display the graph links, in background
 	draw_list->ChannelsSetCurrent(0);
 	for (const auto &b : branches) {
+		assert(b.start_node < nodes.size());
+		assert(b.end_node < nodes.size());
 		const TreeNode &start = nodes[b.start_node];
 		const TreeNode &end = nodes[b.end_node];
 		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
@@ -172,7 +174,7 @@ void TreeWidget::draw_ui() {
 			case 3: type = "Maxima"; break;
 			default: type = "Unknown"; break;
 		}
-		ImGui::Text("Node %lu\nType: %s\nValue: %.2f", i, type, n.value);
+		ImGui::Text("Node %lu\nType: %s\nValue: %.2f", n.node_id, type, n.value);
 		ImGui::EndGroup();
 
 		// Draw the node rect
@@ -335,14 +337,13 @@ void TreeWidget::build_tree() {
 	std::unordered_map<float, size_t> node_val_count;
 	const glm::vec2 node_dims(116, 60);
 	const glm::vec2 node_spacing(24, 12);
-	nodes.resize(node_points->GetNumberOfPoints(), TreeNode());
 	std::cout << "# of node points = " << node_points->GetNumberOfPoints() << "\n";
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
 		int idx = 0;
-		const int node_id = node_attribs->GetArray("NodeIdentifier", idx)->GetTuple(i)[0];
-		TreeNode &n = nodes[node_id];
+		TreeNode n;
 		double pt_pos[3];
 		node_points->GetPoint(i, pt_pos);
+		n.node_id = node_attribs->GetArray("NodeIdentifier", idx)->GetTuple(i)[0];
 		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
 		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
 		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
@@ -358,12 +359,13 @@ void TreeWidget::build_tree() {
 		for (auto &b : branches) {
 			if (b.start == n.pos) {
 				n.exiting_branches.push_back(b.segmentation_id);
-				b.start_node = node_id;
+				b.start_node = i;
 			} else if (b.end == n.pos) {
 				n.entering_branches.push_back(b.segmentation_id);
-				b.end_node = node_id;
+				b.end_node = i;
 			}
 		}
+		nodes.push_back(n);
 	}
 	std::cout << "Built nodes" << std::endl;
 
