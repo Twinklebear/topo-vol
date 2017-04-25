@@ -23,7 +23,9 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
 	persistent_pairs = vtkSmartPointer<vtkThreshold>::New();
 	persistent_pairs->SetInputConnection(critical_pairs->GetOutputPort());
 	persistent_pairs->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, "Persistence");
-	persistent_pairs->ThresholdBetween(1, 999999);
+	// Start at a persistence above one so we filter out some junk
+	threshold_range[0] = 4.f;
+	persistent_pairs->ThresholdBetween(threshold_range[0], 999999);
 
 	// Simplifying the input data to remove non-persistent pairs
 	simplification = vtkSmartPointer<vtkTopologicalSimplification>::New();
@@ -162,7 +164,7 @@ void PersistenceCurveWidget::update() {
 			curve_points.push_back(glm::vec2(p, n));
 		}
 	}
-	threshold_range = persistence_range;
+	threshold_range[1] = persistence_range.y;
 	persistent_pairs->ThresholdBetween(threshold_range[0], threshold_range[1]);
 	simplification->Update();
 }

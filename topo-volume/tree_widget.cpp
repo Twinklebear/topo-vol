@@ -365,6 +365,7 @@ void TreeWidget::build_tree() {
 			}
 		}
 	}
+	std::cout << "Built nodes" << std::endl;
 
 	// Go through all start/end points and find entering/exiting branches to build connectivity
 	for (auto &b : branches) {
@@ -381,5 +382,6 @@ void TreeWidget::build_tree() {
 			}
 		}
 	}
+	std::cout << "Ui graph is done being built" << std::endl;
 }
 
