@@ -183,7 +183,7 @@ void PersistenceCurveWidget::update_persistence_diagram() {
     auto array_PairType       = diagram_cells->GetCellData()->GetArray(1);
     auto array_Persistence    = diagram_cells->GetCellData()->GetArray(2);
 
-    for (vtkIdType i = 0; i < static_cast<vtkIdType>(array_PairType->GetNumberOfCells()); ++i) {
+    for (vtkIdType i = 0; i < static_cast<vtkIdType>(diagram_cells->GetNumberOfCells()); ++i) {
 	// vtkCell* cell = diagram_cells->GetCell(i)GetTuple;
     }
 }
