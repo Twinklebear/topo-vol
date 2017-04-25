@@ -21,6 +21,16 @@
  * @reference https://github.com/ocornut/imgui/wiki/plot_var_example
  */
 class PersistenceCurveWidget {
+public:
+    struct Line {
+	Line() {}
+    Line(double start[2], double end[2], double line_type, double node_start_type, double node_end_type)
+	: ps(glm::make_vec2(start)), pe(glm::make_vec2(end)), tline{line_type}, tnode{node_start_type, node_end_type} {}
+	glm::vec2 ps, pe;
+	double tline;
+	double tnode[2];
+    };
+private:
     vtkSmartPointer<vtkPersistenceDiagram> diagram;
     vtkSmartPointer<vtkThreshold> critical_pairs, persistent_pairs;
     vtkSmartPointer<vtkTopologicalSimplification> simplification;
@@ -29,16 +39,18 @@ class PersistenceCurveWidget {
 
     // Data for the ui display
     std::vector<glm::vec2> curve_points;
-    std::vector<glm::vec2> diagram_points;
+    std::vector<Line> diagram_lines;
     glm::vec2 persistence_range, npairs_range, threshold_range;
-
+    
+    // debug level
+    unsigned int debuglevel = 0;
 public:
     /**
      * @brief Setup the persistence curve display for the passed volume data. The
      * topological simplification selected by the user can then be gotten
      * via `get_simplification`
      */
-    PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> data);
+    PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> data, unsigned int debug = 0);
     // Get the topological simplification resulting from the user's selection
     vtkTopologicalSimplification* get_simplification() const;
     /**

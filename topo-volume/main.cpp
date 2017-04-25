@@ -102,7 +102,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	// each other and splitting. The points come in the same order as the arcs,
 	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
 	// Can also check the point locations for the node/arc points to confirm this.
-	PersistenceCurveWidget persistence_curve_widget(reader);
+	PersistenceCurveWidget persistence_curve_widget(reader, debuglevel); // come on ... let me debug !
 
 	vtkSmartPointer<vtkContourForests> contour_forest
 		= vtkSmartPointer<vtkContourForests>::New();
@@ -112,9 +112,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->SetArcResolution(20);
 	contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
-    contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
-
+	contour_forest->SetdebugLevel_(debuglevel);
 	// Setup transfer function and volume
 	TransferFunction tfcn;
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
