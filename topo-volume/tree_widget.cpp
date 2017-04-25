@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iomanip>
 #include <set>
 #include <map>
 #include <unordered_map>
@@ -21,17 +22,7 @@ std::ostream& operator<<(std::ostream &os, const Branch &b) {
 		<< "\n\tstart: " << glm::to_string(b.start)
 		<< "\n\tend: " << glm::to_string(b.end)
 		<< "\n\tstart_val: " << b.start_val
-		<< "\n\tend_val: " << b.end_val;
-
-	os << "\n\tentering: [";
-	for (const auto &x : b.entering_branches) {
-		os << x << ", ";
-	}
-	os << "]\n\texiting: [";
-	for (const auto &x : b.exiting_branches) {
-		os << x << ", ";
-	}
-	os << "]\n}";
+		<< "\n\tend_val: " << b.end_val << "\n}";
 	return os;
 }
 
@@ -289,7 +280,7 @@ void TreeWidget::build_tree() {
 	int idx = 0;
 	vtkDataArray *pt_img_file = point_attribs->GetArray("ImageFile", idx);
 	vtkDataArray *line_seg_id = cell_attribs->GetArray("SegmentationId", idx);
-	std::cout << "There are " << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
+	std::cout << "There are " << std::fixed << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
 	branches.resize(size_t(line_seg_id->GetRange()[1]) + 1, Branch());
 	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
 
@@ -369,19 +360,29 @@ void TreeWidget::build_tree() {
 	}
 	std::cout << "Built nodes" << std::endl;
 
-	// Go through all start/end points and find entering/exiting branches to build connectivity
+	// Go through all branches and make sure we aren't missing any nodes, and fix up any
+	// nans or other crap we might have gotten back
 	for (auto &b : branches) {
-		// Find all branches entering this one (their end = our start)
-		for (size_t i = 0; i < branches.size(); ++i){
-			if (branches[i].end == b.start) {
-				b.entering_branches.push_back(i);
-			}
+		// Sometimes on tooth I get nans for branch start values?
+		if (!std::isfinite(b.start_val)) {
+			b.start_val = 0;
 		}
-		// Find all branches exiting this one (their start = our end)
-		for (size_t i = 0; i < branches.size(); ++i){
-			if (branches[i].start == b.end) {
-				b.exiting_branches.push_back(i);
-			}
+		if (!std::isfinite(b.end_val)) {
+			b.end_val = 0;
+		}
+		if (b.start_node >= nodes.size()) {
+			// Find the node it should be connected too, hopefully
+			auto fnd = std::find_if(nodes.begin(), nodes.end(),
+					[&](const TreeNode &n) { return std::abs(n.value - b.start_val) < 0.0001; });
+			b.start_node = std::distance(nodes.begin(), fnd);
+			fnd->exiting_branches.push_back(b.segmentation_id);
+		}
+		if (b.end_node >= nodes.size()) {
+			// Find the node it should be connected too, hopefully
+			auto fnd = std::find_if(nodes.begin(), nodes.end(),
+					[&](const TreeNode &n) { return std::abs(n.value - b.end_val) < 0.0001; });
+			b.end_node = std::distance(nodes.begin(), fnd);
+			fnd->entering_branches.push_back(b.segmentation_id);
 		}
 	}
 	std::cout << "Ui graph is done being built" << std::endl;

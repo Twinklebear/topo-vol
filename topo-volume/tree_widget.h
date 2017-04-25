@@ -17,8 +17,6 @@ struct Branch {
 	glm::uvec3 start, end;
 	// Values of the volume at the branch's start/end points
 	float start_val, end_val;
-	// Branches entering and exiting this branches start/end points respectively
-	std::vector<size_t> entering_branches, exiting_branches;
 	// Start and end nodes
 	size_t start_node, end_node;
 };
