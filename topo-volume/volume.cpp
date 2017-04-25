@@ -140,7 +140,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		}
 
 		glGenTextures(1, &texture);
-		glGenTextures(1, &seg_texture);
+		//glGenTextures(1, &seg_texture);
 
 		// TODO: If drawing multiple volumes they can all share the same program
 		const std::string resource_path = glt::get_resource_path();
@@ -161,18 +161,16 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		uploaded = true;
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
-		upload_volume(vtk_data);
-
 		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
-		int idx = 0;
-		vtkDataArray *seg_data = fields->GetArray("SegmentationId", idx);
+		upload_volume(fields->GetArray("ImageFile"));
+
+		vtkDataArray *seg_data = fields->GetArray("SegmentationId");
 		if (seg_data) {
 			glActiveTexture(GL_TEXTURE3);
 			glBindTexture(GL_TEXTURE_3D, seg_texture);
 			upload_volume(seg_data);
 			glUseProgram(shader);
 			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 1);
-			std::cout << "has segmentation volume\n";
 			const int num_segments = seg_data->GetRange()[1] + 1;
 			segmentation_buf = allocator->alloc((num_segments + 1) * sizeof(int), glt::BufAlignment::SHADER_STORAGE_BUFFER);
 			{
@@ -307,41 +305,11 @@ void Volume::build_histogram(){
 void Volume::upload_volume(vtkDataArray *data) {
 	GLenum internal_fmt, data_fmt, px_fmt;
 	vtk_type_to_gl(data->GetDataType(), internal_fmt, data_fmt, px_fmt);
-	// VTK may have not exported the image in the right row-major ordering so make sure
-	// the pixels are in the right order here.
-	{
-#if 0
-		// TODO: Doesn't work re-ordering the data this way but code seems right??
-		const size_t dtype_size = vtk_data->GetDataTypeSize();
-		std::vector<uint8_t> img_bytes(dims[0] * dims[1] * dims[2] * dtype_size, 0);
-		std::cout << "# bytes in img " << img_bytes.size() << "\n";
-		std::cout << "dtype size = " << dtype_size << "\n";
-		for (size_t z = 0; z < dims[2]; ++z) {
-			for (size_t y = 0; y < dims[1]; ++y) {
-				for (size_t x = 0; x < dims[0]; ++x) {
-					const size_t i = x + dims[0] * (y + dims[1] * z);
-					const uint8_t *byte_data = static_cast<const uint8_t*>(vtk_data->GetVoidPointer(i));
-					for (size_t b = 0; b < dtype_size; ++b) {
-						img_bytes[i * dtype_size + b] = byte_data[b];
-					}
-				}
-			}
-		}
-		glTexImage3D(GL_TEXTURE_3D, 0, internal_format, dims[0], dims[1], dims[2], 0, pixel_format,
-				format, img_bytes.data());
-#else
-		glTexImage3D(GL_TEXTURE_3D, 0, internal_fmt, dims[0], dims[1], dims[2], 0, px_fmt,
-				data_fmt, NULL);
-		for (size_t z = 0; z < dims[2]; ++z) {
-			for (size_t y = 0; y < dims[1]; ++y) {
-				for (size_t x = 0; x < dims[0]; ++x) {
-					glTexSubImage3D(GL_TEXTURE_3D, 0, x, y, z, 1, 1, 1, px_fmt,
-							data_fmt, static_cast<void*>(data->GetVoidPointer(x + dims[0] * (y + dims[1] * z))));
-				}
-			}
-		}
-#endif
-	}
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexImage3D(GL_TEXTURE_3D, 0, internal_fmt, dims[0], dims[1], dims[2], 0, px_fmt,
+			data_fmt, (char*)data->GetVoidPointer(0));
+
 	if (px_fmt == GL_RED_INTEGER) {
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -349,8 +317,8 @@ void Volume::upload_volume(vtkDataArray *data) {
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 
