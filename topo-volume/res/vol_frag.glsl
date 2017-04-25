@@ -59,7 +59,7 @@ void main(void){
 
 	color = vec4(0);
 	vec3 dt_vec = 1.0 / (vol_dim * abs(ray_dir));
-	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z)) * 0.05;
+	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z));
 	vec3 p = transformed_eye + tenter * ray_dir;
 
 	float prev;
