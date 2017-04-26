@@ -190,7 +190,6 @@ void TransferFunction::render(){
 void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
 	vtkContourForests *cf = dynamic_cast<vtkContourForests*>(caller);
 	if (cf) {
-		std::cout << __PRETTY_FUNCTION__ << "@" << __LINE__ << "\n";
 		vtkDataSet *data = cf->GetOutput(2);
 		vtkDataSetAttributes *fields = data->GetAttributes(vtkDataSet::POINT);
 		vtkDataArray *seg_data = fields->GetArray("SegmentationId");
