@@ -20,7 +20,6 @@ endif()
 include(${TTK_DIR}/ttk.cmake)
 
 add_definitions(-DwithParallelSimplify)
-add_definitions(-DwithOpenMP)
 
 # include the different packages required for the application
 ttk_add_vtkWrapper_package(vtkContourForests)
