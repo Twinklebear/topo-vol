@@ -178,15 +178,21 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 			const int num_segments = seg_data->GetRange()[1] + 1;
 			// Re-allocing each time we change leaks some, but re-alloc and free seem to screw up
 			// the buffer? Probabaly a todo for me later (will)
-			segmentation_buf = allocator->alloc((num_segments + 1) * sizeof(int), glt::BufAlignment::SHADER_STORAGE_BUFFER);
+			segmentation_buf = allocator->alloc((2 * num_segments + 1) * sizeof(int),
+					glt::BufAlignment::SHADER_STORAGE_BUFFER);
 			{
 				int *buf = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT));
 				buf[0] = num_segments;
+				// The buffer is interleaved [segment, palette, segment, palette, ...]
+				segmentation_palettes.clear();
+				segmentation_palettes.resize(num_segments, 0);
 				segmentation_selections.clear();
 				segmentation_selections.resize(num_segments, 1);
 				int *s = buf + 1;
 				for (const auto &x : segmentation_selections) {
 					*s = x;
+					++s;
+					*s = 0;
 					++s;
 				}
 				segmentation_buf.unmap(GL_SHADER_STORAGE_BUFFER);
@@ -234,9 +240,9 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		build_histogram();
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, segmentation_buf.buffer);
 		int *s = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT)) + 1;
-		for (const auto &x : segmentation_selections) {
-			*s = x;
-			++s;
+		for (size_t i = 0; i < segmentation_selections.size(); ++i, s += 2) {
+			s[0] = segmentation_selections[i];
+			s[1] = segmentation_palettes[i];
 		}
 		segmentation_buf.unmap(GL_SHADER_STORAGE_BUFFER);
 		glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, segmentation_buf.buffer,

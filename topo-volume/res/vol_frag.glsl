@@ -17,10 +17,12 @@ flat in vec3 transformed_eye;
 
 out vec4 color;
 
-bool segment_selected(vec3 p) {
+bool segment_selected(vec3 p, out uint palette) {
+	palette = 0;
 	if (has_segmentation_volume) {
 		const int segment = texture(segmentation_volume, p).r;
-		return segment_selections[segment] != 0;
+		palette = segment_selections[segment * 2 + 1];
+		return segment_selections[segment * 2] != 0;
 	}
 	return true;
 }
@@ -65,9 +67,10 @@ void main(void){
 	float prev;
 	vec3 p_prev;
 	for (float t = tenter; t < texit; t += dt){
-		if (segment_selected(p)) {
+		uint segment_palette = 0;
+		if (segment_selected(p, segment_palette)) {
 			float palette_sample = value(p);
-			vec4 color_sample = texture(palette, vec2(palette_sample, 0));
+			vec4 color_sample = texture(palette, vec2(palette_sample, segment_palette));
 			color_sample.a *= pow(dt, 0.4);
 			color.rgb += (1 - color.a) * color_sample.a * color_sample.rgb;
 			color.a += (1 - color.a) * color_sample.a;

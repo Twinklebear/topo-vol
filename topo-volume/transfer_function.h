@@ -36,7 +36,7 @@ class TransferFunction : public vtkCommand {
 		// Lines for RGBA transfer function controls
 		std::array<Line, 4> rgba_lines;
 		// The segments that this palette is applied to
-		std::set<int> segments;
+		std::set<unsigned int> segments;
 
 		Palette();
 	};
@@ -71,6 +71,8 @@ public:
 	 */
 	void render();
 	void Execute(vtkObject *caller, unsigned long event_id, void *call_data) override;
+	// Build the list of which palette each segmentation should use
+	std::vector<unsigned int> get_segmentation_palettes() const;
 
 private:
 	void render_palette_ui(Palette &p); 

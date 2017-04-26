@@ -107,6 +107,7 @@ void TransferFunction::draw_ui(){
 	}
 	active_palette = glm::clamp(active_palette, 0, max_palettes - 1);
 	if (active_palette >= palettes.size()) {
+		fcn_changed = true;
 		palettes.resize(active_palette + 1, Palette());
 	}
 	ImGui::Text("Left click and drag to add/move points\nRight click to remove\n");
@@ -197,7 +198,7 @@ void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *
 			palettes.clear();
 			palettes.push_back(Palette());
 			active_palette = 0;
-			num_segmentations = seg_data->GetRange()[1];
+			num_segmentations = seg_data->GetRange()[1] + 1;
 			// Select all segments for this palette
 			for (size_t i = 0; i < num_segmentations; ++i) {
 				palettes[active_palette].segments.insert(i);
@@ -205,6 +206,15 @@ void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *
 			fcn_changed = true;
 		}
 	}
+}
+std::vector<unsigned int> TransferFunction::get_segmentation_palettes() const {
+	std::vector<unsigned int> seg_pal(num_segmentations, 0);
+	for (size_t i = 0; i < palettes.size(); ++i) {
+		for (const auto &s : palettes[i].segments) {
+			seg_pal[s] = i;
+		}
+	}
+	return seg_pal;
 }
 void TransferFunction::render_palette_ui(Palette &p) {
 	ImGui::RadioButton("Red", &p.active_line, 0); ImGui::SameLine();
