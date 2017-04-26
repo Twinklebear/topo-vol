@@ -102,8 +102,8 @@ void TransferFunction::draw_ui(){
 		ImDrawList *draw_list = ImGui::GetWindowDrawList();
 		draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 255, 255));
 
-		const glm::vec2 view_scale(canvas_size.x, -canvas_size.y);
-		const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
+		const glm::vec2 view_scale(canvas_size.x, -canvas_size.y + 4);
+		const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y - 4);
 
 		ImGui::InvisibleButton("canvas", canvas_size);
 		if (ImGui::IsItemHovered()){
@@ -120,12 +120,15 @@ void TransferFunction::draw_ui(){
 		}
 		draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
 		if (histogram && !histogram->empty()){
+			const glm::vec2 hview_scale(canvas_size.x, -canvas_size.y + 4);
+			const glm::vec2 hview_offset(canvas_pos.x, canvas_pos.y + canvas_size.y + 4);
 			const size_t max_val = *std::max_element(histogram->begin(), histogram->end());
 			const float bar_width = 1.0f / static_cast<float>(histogram->size());
 			for (size_t i = 0; i < histogram->size(); ++i){
 				glm::vec2 bottom{bar_width * i, 0.f};
 				glm::vec2 top{bottom.x + bar_width, (*histogram)[i] / static_cast<float>(max_val)};
-				draw_list->AddRectFilled(view_offset + view_scale * bottom, view_offset + view_scale * top, 0xffaaaaaa);
+				draw_list->AddRectFilled(hview_offset + hview_scale * bottom,
+						hview_offset + hview_scale * top, 0xffaaaaaa);
 			}
 		}
 
@@ -142,6 +145,7 @@ void TransferFunction::draw_ui(){
 						rgba_lines[i].color, 2.0f);
 			}
 		}
+
 		// Draw the active line on top
 		for (size_t j = 0; j < rgba_lines[active_line].line.size() - 1; ++j){
 			const glm::vec2 &a = rgba_lines[active_line].line[j];
@@ -191,8 +195,9 @@ void TransferFunction::render(){
 					++lit[j];
 				}
 				assert(lit[j] != rgba_lines[j].line.end());
-				float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-				palette[i * 4 + j] = static_cast<uint8_t>(glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0);
+				const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
+				const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
+				palette[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
 			}
 		}
 		glActiveTexture(GL_TEXTURE2);
@@ -211,8 +216,9 @@ void TransferFunction::render(){
 					++lit[j];
 				}
 				assert(lit[j] != rgba_lines[j].line.end());
-				float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-				palette[i * 4 + j] = static_cast<uint8_t>(glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0);
+				const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
+				const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
+				palette[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
 			}
 		}
 		for (size_t i = 0; i < samples; ++i){
