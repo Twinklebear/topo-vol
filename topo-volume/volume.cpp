@@ -51,7 +51,7 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 Volume::Volume(vtkImageData *vol, const std::string &array_name)
 	: vol_data(vol), data_field_name(array_name), uploaded(false),
 	isovalue(0.f), show_isosurface(false),
-	transform_dirty(true), translation(0), scaling(1)
+	transform_dirty(true), translation(0), scaling(1), segmentation_selection_changed(false)
 {
 	vol->AddObserver(vtkCommand::ModifiedEvent, this);
 	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
@@ -192,6 +192,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 				}
 				segmentation_buf.unmap(GL_SHADER_STORAGE_BUFFER);
 			}
+			segmentation_selection_changed = true;
 		} else {
 			glUseProgram(shader);
 			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 0);
@@ -228,7 +229,9 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
-	if (segmentation_buf.size != 0) {
+	if (segmentation_buf.size != 0 && segmentation_selection_changed) {
+		segmentation_selection_changed = false;
+
 		build_histogram();
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, segmentation_buf.buffer);
 		int *s = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT)) + 1;

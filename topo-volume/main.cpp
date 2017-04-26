@@ -120,6 +120,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = &volume.histogram;
 
+	std::vector<unsigned int> prev_seg_selection;
 	bool ui_hovered = false;
 	bool quit = false;
 	bool camera_updated = false;
@@ -185,10 +186,14 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		persistence_curve_widget.draw_ui();
 
 		const auto &tree_selection = tree_widget.get_selection();
-		std::fill(volume.segmentation_selections.begin(), volume.segmentation_selections.end(),
-				tree_selection.empty() ? 1 : 0);
-		for (const auto &x : tree_selection) {
-			volume.segmentation_selections[x] = 1;
+		if (prev_seg_selection != tree_selection) {
+			std::fill(volume.segmentation_selections.begin(), volume.segmentation_selections.end(),
+					tree_selection.empty() ? 1 : 0);
+			for (const auto &x : tree_selection) {
+				volume.segmentation_selections[x] = 1;
+			}
+			volume.segmentation_selection_changed = true;
+			prev_seg_selection = tree_selection;
 		}
 
 		ui_hovered = ImGui::IsMouseHoveringAnyWindow();

@@ -50,7 +50,8 @@ public:
 	// TODO: Should the volume no longer build a histogram and instead the
 	// user handles it? Maybe the user could pass the value min/max as well?
 	std::vector<size_t> histogram;
-	std::vector<int> segmentation_selections;
+	std::vector<unsigned int> segmentation_selections;
+	bool segmentation_selection_changed;
 
 	Volume(vtkImageData *vol, const std::string &array_name = "ImageFile");
 	~Volume();
