@@ -2,6 +2,11 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <vtkDataSetAttributes.h>
+#include <vtkType.h>
+#include <vtkDataSetAttributes.h>
+#include <vtkDataSet.h>
+#include <vtkContourForests.h>
 #include "imgui-1.49/imgui.h"
 #include <SDL.h>
 #include <glm/ext.hpp>
@@ -82,8 +87,10 @@ TransferFunction::TransferFunction() : active_palette(0), fcn_changed(true),
 	active_fcn_changed(true), palette_tex({0, 0}), histogram(nullptr)
 {
 	palettes.push_back(Palette());
-	max_palettes = 10;
-	//glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max_palettes);
+	num_segmentations = 0;
+	// 256 is probably more than enough for most applications, max array size
+	// is 2048 on 4.5 which is kind of a large texture (256x2048)
+	max_palettes = 256;
 }
 TransferFunction::~TransferFunction(){
 	if (palette_tex[0]){
@@ -107,16 +114,19 @@ void TransferFunction::draw_ui(){
 	Palette &p = palettes[active_palette];
 	render_palette_ui(p);
 
-	ImGui::ListBoxHeader("Apply to Segments", 10);
-	// TODO: Get max # of segments
-	for (size_t i = 0; i < 15; ++i) {
+	ImGui::ListBoxHeader("Apply to Segments", std::min(size_t(10), num_segmentations));
+	for (size_t i = 0; i < num_segmentations; ++i) {
 		bool sel = p.segments.find(i) != p.segments.end();
 		const std::string txt = "Segment" + std::to_string(i);
-		if (ImGui::Selectable(txt.c_str(), &sel)) {
-			if (sel) {
-				p.segments.insert(i);
-			} else {
-				p.segments.erase(i);
+		// Deselection is done by selecting the segment in a different palette,
+		// each segment must be associated with a palette to be rendered
+		if (ImGui::Selectable(txt.c_str(), &sel) && sel) {
+			p.segments.insert(i);
+			// Deselect the segment from all other palettes
+			for (size_t j = 0; j < palettes.size(); ++j) {
+				if (j != active_palette && palettes[j].segments.find(i) != palettes[j].segments.end()) {
+					palettes[j].segments.erase(i);
+				}
 			}
 		}
 	}
@@ -175,6 +185,26 @@ void TransferFunction::render(){
 	// so it can take care of finding it properly when the volume is rendered
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_1D, palette_tex[0]);
+}
+void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
+	vtkContourForests *cf = dynamic_cast<vtkContourForests*>(caller);
+	if (cf) {
+		std::cout << __PRETTY_FUNCTION__ << "@" << __LINE__ << "\n";
+		vtkDataSet *data = cf->GetOutput(2);
+		vtkDataSetAttributes *fields = data->GetAttributes(vtkDataSet::POINT);
+		vtkDataArray *seg_data = fields->GetArray("SegmentationId");
+		if (seg_data) {
+			palettes.clear();
+			palettes.push_back(Palette());
+			active_palette = 0;
+			num_segmentations = seg_data->GetRange()[1];
+			// Select all segments for this palette
+			for (size_t i = 0; i < num_segmentations; ++i) {
+				palettes[active_palette].segments.insert(i);
+			}
+			fcn_changed = true;
+		}
+	}
 }
 void TransferFunction::render_palette_ui(Palette &p) {
 	ImGui::RadioButton("Red", &p.active_line, 0); ImGui::SameLine();

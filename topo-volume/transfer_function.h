@@ -5,10 +5,11 @@
 #include <vector>
 #include <array>
 #include <glm/glm.hpp>
+#include <vtkCommand.h>
 #include "glt/gl_core_4_5.h"
 #include "glt/buffer_allocator.h"
 
-class TransferFunction {
+class TransferFunction : public vtkCommand {
 	// A line is made up of points sorted by x, its coordinates are
 	// on the range [0, 1]
 	struct Line {
@@ -42,6 +43,7 @@ class TransferFunction {
 
 	std::vector<Palette> palettes;
 	int active_palette;
+	size_t num_segmentations;
 
 	// Track if the function changed and must be re-uploaded.
 	// We start by marking it changed to upload the initial palette
@@ -68,6 +70,7 @@ public:
 	 * be applied to volume data
 	 */
 	void render();
+	void Execute(vtkObject *caller, unsigned long event_id, void *call_data) override;
 
 private:
 	void render_palette_ui(Palette &p); 

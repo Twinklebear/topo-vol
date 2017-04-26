@@ -116,6 +116,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->SetdebugLevel_(debuglevel);
 	// Setup transfer function and volume
 	TransferFunction tfcn;
+	contour_forest->AddObserver(vtkCommand::EndEvent, &tfcn);
+
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
 	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = &volume.histogram;
