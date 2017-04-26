@@ -21,6 +21,8 @@ std::ostream& operator<<(std::ostream &os, const Branch &b) {
 	os << "Branch {\n\tsegmentation_id: " << b.segmentation_id
 		<< "\n\tstart: " << glm::to_string(b.start)
 		<< "\n\tend: " << glm::to_string(b.end)
+		<< "\n\tstart_node: " << b.start_node
+		<< "\n\tend_node: " << b.end_node
 		<< "\n\tstart_val: " << b.start_val
 		<< "\n\tend_val: " << b.end_val << "\n}";
 	return os;
@@ -40,7 +42,7 @@ glm::vec2 TreeNode::get_output_slot_pos(const size_t segment) const {
 			ui_pos.y + ui_size.y * static_cast<float>(slot + 1) / (exiting_branches.size() + 1));
 }
 std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
-	os << "TreeNode {\n\ttype: " << n.type
+	os << "TreeNode {\n\tid: " << n.node_id << "\n\ttype: " << n.type
 		<< "\n\tpos: " << glm::to_string(n.pos)
 		<< "\n\tval: " << n.value;
 
@@ -124,10 +126,6 @@ void TreeWidget::draw_ui() {
 	draw_list->ChannelsSetCurrent(0);
 	size_t branch_selection = -1;
 	for (const auto &b : branches) {
-		// Skip weird crap branches we get on some noisy data
-		if (b.start_node >= nodes.size() || b.end_node >= nodes.size()) {
-			continue;
-		}
 		const TreeNode &start = nodes[b.start_node];
 		const TreeNode &end = nodes[b.end_node];
 		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
@@ -389,5 +387,13 @@ void TreeWidget::build_tree() {
 		}
 	}
 	std::cout << "Ui graph is done being built" << std::endl;
+
+	// Sometimes on Tooth the node/branches don't seem to be constructed properly
+	// for us to re-link them
+	auto node0 = std::find_if(nodes.begin(), nodes.end(), [](const TreeNode &n) { return n.node_id == 0; });
+	if (node0 != nodes.end() && node0->exiting_branches.empty()) {
+		node0->exiting_branches.push_back(branches[0].segmentation_id);
+		branches[0].start_node = std::distance(nodes.begin(), node0);
+	}
 }
 
