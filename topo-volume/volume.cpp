@@ -140,7 +140,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		}
 
 		glGenTextures(1, &texture);
-		//glGenTextures(1, &seg_texture);
+		glGenTextures(1, &seg_texture);
 
 		// TODO: If drawing multiple volumes they can all share the same program
 		const std::string resource_path = glt::get_resource_path();
