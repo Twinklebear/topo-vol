@@ -122,53 +122,22 @@ void TreeWidget::draw_ui() {
 	ImDrawList *draw_list = ImGui::GetWindowDrawList();
 	draw_list->ChannelsSplit(2);
 
-	// Display the graph links, in background
-	draw_list->ChannelsSetCurrent(0);
-	size_t branch_selection = -1;
-	for (const auto &b : branches) {
-		const TreeNode &start = nodes[b.start_node];
-		const TreeNode &end = nodes[b.end_node];
-		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
-		const glm::vec2 p2 = offset + end.get_input_slot_pos(b.segmentation_id);
-
-		const bool selected = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.segmentation_id)
-			!= selected_segmentations.end();
-		const ImColor color = selected ? ImColor(0.9f, 0.9f, 0.2f, 1.f) : ImColor(0.8f, 0.8f, 0.1f, 0.5f);
-		draw_list->AddLine(p1, p2, color, 2.f);
-
-		if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && point_on_line(p1, p2, mouse_pos)) {
-			branch_selection = b.segmentation_id;
-		}
-	}
-
+	// Draw the nodes in the foreground
+	bool node_hovered = false;
 	const glm::vec2 NODE_WINDOW_PADDING(8);
+	draw_list->ChannelsSetCurrent(1);
 	for (size_t i = 0; i < nodes.size(); ++i) {
 		TreeNode &n = nodes[i];
 		ImGui::PushID(i);
 
-		// Draw node rect foreground
-		draw_list->ChannelsSetCurrent(1);
-		const glm::vec2 rect_start = offset + n.ui_pos;
-		ImGui::SetCursorScreenPos(rect_start + NODE_WINDOW_PADDING);
-		ImGui::BeginGroup();
-		const char *type = nullptr;
-		switch (n.type) {
-			case 0: type = "Minima"; break;
-			case 1: type = "1-Saddle"; break;
-			case 2: type = "2-Saddle"; break;
-			case 3: type = "Maxima"; break;
-			default: type = "Unknown"; break;
-		}
-		ImGui::Text("Node %lu\nType: %s\nValue: %.2f", n.node_id, type, n.value);
-		ImGui::EndGroup();
-
 		// Draw the node rect
-		draw_list->ChannelsSetCurrent(0);
+		const glm::vec2 rect_start = offset + n.ui_pos;
 		ImGui::SetCursorScreenPos(rect_start);
 		ImGui::InvisibleButton("node", n.ui_size);
 		if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0)) {
 			n.ui_pos += glm::vec2(ImGui::GetIO().MouseDelta);
 		}
+		node_hovered |= ImGui::IsItemHovered();
 
 		const glm::vec2 rect_end = rect_start + n.ui_size;
 		draw_list->AddRectFilled(rect_start, rect_end, ImColor(60, 60, 60), 4.f);
@@ -182,8 +151,50 @@ void TreeWidget::draw_ui() {
 			draw_list->AddCircleFilled(offset + n.get_output_slot_pos(x), 5.f, ImColor(150, 150, 150, 150));
 		}
 
+		// Draw node rect text on top
+		ImGui::SetCursorScreenPos(rect_start + NODE_WINDOW_PADDING);
+		ImGui::BeginGroup();
+		const char *type = nullptr;
+		switch (n.type) {
+			case 0: type = "Minima"; break;
+			case 1: type = "1-Saddle"; break;
+			case 2: type = "2-Saddle"; break;
+			case 3: type = "Maxima"; break;
+			default: type = "Unknown"; break;
+		}
+		ImGui::Text("Node %lu\nType: %s\nValue: %.2f", n.node_id, type, n.value);
+		ImGui::EndGroup();
+
 		ImGui::PopID();
 	}
+
+	// Display the graph links, in background
+	draw_list->ChannelsSetCurrent(0);
+	size_t branch_selection = -1;
+	for (const auto &b : branches) {
+		if (b.start_node >= nodes.size() || b.end_node >= nodes.size()) {
+			std::cout << "Bad branch connection\n";
+		}
+		const TreeNode &start = nodes[b.start_node];
+		const TreeNode &end = nodes[b.end_node];
+		const glm::vec2 p1 = offset + start.get_output_slot_pos(b.segmentation_id);
+		const glm::vec2 p2 = offset + end.get_input_slot_pos(b.segmentation_id);
+
+		const bool selected = std::find(selected_segmentations.begin(), selected_segmentations.end(), b.segmentation_id)
+			!= selected_segmentations.end();
+		const ImColor color = selected ? ImColor(0.9f, 0.9f, 0.2f, 1.f) : ImColor(0.8f, 0.8f, 0.1f, 0.5f);
+		draw_list->AddLine(p1, p2, color, 2.f);
+
+		if (ImGui::IsWindowHovered() && point_on_line(p1, p2, mouse_pos)) {
+			if (!node_hovered) {
+				ImGui::SetTooltip("Segment %lu", b.segmentation_id);
+			}
+			if (ImGui::IsMouseClicked(0)) {
+				branch_selection = b.segmentation_id;
+			}
+		}
+	}
+
 	draw_list->ChannelsMerge();
 
 	if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive()) {
@@ -368,9 +379,6 @@ void TreeWidget::build_tree() {
 			if (fnd != nodes.end()) {
 				b.start_node = std::distance(nodes.begin(), fnd);
 				fnd->exiting_branches.push_back(b.segmentation_id);
-			} else {
-				b.start_node = 0;
-				nodes[0].exiting_branches.push_back(b.segmentation_id);
 			}
 		}
 		if (b.end_node >= nodes.size()) {
@@ -380,9 +388,6 @@ void TreeWidget::build_tree() {
 			if (fnd != nodes.end()) {
 				b.end_node = std::distance(nodes.begin(), fnd);
 				fnd->entering_branches.push_back(b.segmentation_id);
-			} else {
-				b.end_node = nodes.size() - 1;
-				nodes.back().entering_branches.push_back(b.segmentation_id);
 			}
 		}
 	}
@@ -391,7 +396,7 @@ void TreeWidget::build_tree() {
 	// Sometimes on Tooth the node/branches don't seem to be constructed properly
 	// for us to re-link them
 	auto node0 = std::find_if(nodes.begin(), nodes.end(), [](const TreeNode &n) { return n.node_id == 0; });
-	if (node0 != nodes.end() && node0->exiting_branches.empty()) {
+	if (node0 != nodes.end() && branches[0].start_node >= nodes.size() && node0->exiting_branches.empty()) {
 		node0->exiting_branches.push_back(branches[0].segmentation_id);
 		branches[0].start_node = std::distance(nodes.begin(), node0);
 	}

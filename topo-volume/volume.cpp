@@ -169,7 +169,6 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		upload_volume(vtk_data);
 
 		if (seg_data) {
-			std::cout << "Got segmentation" << std::endl;
 			glActiveTexture(GL_TEXTURE3);
 			glBindTexture(GL_TEXTURE_3D, seg_texture);
 			upload_volume(seg_data);
