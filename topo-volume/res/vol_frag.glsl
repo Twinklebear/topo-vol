@@ -4,7 +4,7 @@
 
 uniform sampler3D volume;
 uniform isampler3D ivolume;
-uniform sampler1D palette;
+uniform sampler1DArray palette;
 uniform isampler3D segmentation_volume;
 
 uniform bool has_segmentation_volume;
@@ -67,24 +67,12 @@ void main(void){
 	for (float t = tenter; t < texit; t += dt){
 		if (segment_selected(p)) {
 			float palette_sample = value(p);
-			if (isosurface){
-				if (t != tenter && prev < isovalue && palette_sample > isovalue){
-					vec3 inter = (isovalue - prev) / (palette_sample - prev) * (p - p_prev) + p_prev;
-					vec3 n = -normalize(grad(inter, dt));
-					vec3 diffuse = texture(palette, isovalue).rgb;
-					color = vec4(clamp(dot(n, -light_dir), 0.2, 1.0) * diffuse, 1.0);
-					return;
-				}
-				prev = palette_sample;
-				p_prev = p;
-			} else {
-				vec4 color_sample = texture(palette, palette_sample);
-				color_sample.a *= pow(dt, 0.4);
-				color.rgb += (1 - color.a) * color_sample.a * color_sample.rgb;
-				color.a += (1 - color.a) * color_sample.a;
-				if (color.a >= 0.97) {
-					break;
-				}
+			vec4 color_sample = texture(palette, vec2(palette_sample, 0));
+			color_sample.a *= pow(dt, 0.4);
+			color.rgb += (1 - color.a) * color_sample.a * color_sample.rgb;
+			color.a += (1 - color.a) * color_sample.a;
+			if (color.a >= 0.97) {
+				break;
 			}
 		}
 		p += dt * ray_dir;

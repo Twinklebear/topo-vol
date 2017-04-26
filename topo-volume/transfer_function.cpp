@@ -55,7 +55,7 @@ void TransferFunction::Line::remove_point(const float &x){
 	}
 }
 
-TransferFunction::TransferFunction() : active_line(3), fcn_changed(true), palette_tex({0, 0}), histogram(nullptr) {
+TransferFunction::Palette::Palette() : active_line(3) {
 	rgba_lines[0].color = 0xff0000ff;
 	rgba_lines[1].color = 0xff00ff00;
 	rgba_lines[2].color = 0xffff0000;
@@ -77,100 +77,66 @@ TransferFunction::TransferFunction() : active_line(3), fcn_changed(true), palett
 		}
 	}
 }
+
+TransferFunction::TransferFunction() : active_palette(0), fcn_changed(true),
+	active_fcn_changed(true), palette_tex({0, 0}), histogram(nullptr)
+{
+	palettes.push_back(Palette());
+	max_palettes = 10;
+	//glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &max_palettes);
+}
 TransferFunction::~TransferFunction(){
 	if (palette_tex[0]){
 		glDeleteTextures(2, palette_tex.data());
 	}
 }
 void TransferFunction::draw_ui(){
-	if (ImGui::Begin("Transfer Function")){
-		ImGui::Text("Left click and drag to add/move points\nRight click to remove\n");
-		ImGui::RadioButton("Red", &active_line, 0); ImGui::SameLine();
-		ImGui::RadioButton("Green", &active_line, 1); ImGui::SameLine();
-		ImGui::RadioButton("Blue", &active_line, 2); ImGui::SameLine();
-		ImGui::RadioButton("Alpha", &active_line, 3);
-
-		glm::vec2 canvas_pos(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
-		glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
-
-		if (palette_tex[0]){
-			ImGui::Image(reinterpret_cast<void*>(palette_tex[1]), ImVec2(canvas_size.x, 16));
-			canvas_pos.y += 20;
-			canvas_size.y -= 20;
-		}
-
-		ImDrawList *draw_list = ImGui::GetWindowDrawList();
-		draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 255, 255));
-
-		const glm::vec2 view_scale(canvas_size.x, -canvas_size.y + 4);
-		const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y - 4);
-
-		ImGui::InvisibleButton("canvas", canvas_size);
-		if (ImGui::IsItemHovered()){
-			glm::vec2 mouse_pos = glm::vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
-			mouse_pos = (mouse_pos - view_offset) / view_scale;
-			// Need to somehow find which line of RGBA the mouse is closest too
-			if (ImGui::GetIO().MouseDown[0]){
-				rgba_lines[active_line].move_point(mouse_pos.x, mouse_pos);
-				fcn_changed = true;
-			} else if (ImGui::IsMouseClicked(1)){
-				rgba_lines[active_line].remove_point(mouse_pos.x);
-				fcn_changed = true;
-			}
-		}
-		draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
-		if (histogram && !histogram->empty()){
-			const glm::vec2 hview_scale(canvas_size.x, -canvas_size.y + 4);
-			const glm::vec2 hview_offset(canvas_pos.x, canvas_pos.y + canvas_size.y + 4);
-			const size_t max_val = *std::max_element(histogram->begin(), histogram->end());
-			const float bar_width = 1.0f / static_cast<float>(histogram->size());
-			for (size_t i = 0; i < histogram->size(); ++i){
-				glm::vec2 bottom{bar_width * i, 0.f};
-				glm::vec2 top{bottom.x + bar_width, (*histogram)[i] / static_cast<float>(max_val)};
-				draw_list->AddRectFilled(hview_offset + hview_scale * bottom,
-						hview_offset + hview_scale * top, 0xffaaaaaa);
-			}
-		}
-
-		// TODO: Should also draw little boxes showing the clickable region for each
-		// line segment
-		for (int i = 0; i < static_cast<int>(rgba_lines.size()); ++i){
-			if (i == active_line){
-				continue;
-			}
-			for (size_t j = 0; j < rgba_lines[i].line.size() - 1; ++j){
-				const glm::vec2 &a = rgba_lines[i].line[j];
-				const glm::vec2 &b = rgba_lines[i].line[j + 1];
-				draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b,
-						rgba_lines[i].color, 2.0f);
-			}
-		}
-
-		// Draw the active line on top
-		for (size_t j = 0; j < rgba_lines[active_line].line.size() - 1; ++j){
-			const glm::vec2 &a = rgba_lines[active_line].line[j];
-			const glm::vec2 &b = rgba_lines[active_line].line[j + 1];
-			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b,
-					rgba_lines[active_line].color, 2.0f);
-		}
-		draw_list->PopClipRect();
+	if (!ImGui::Begin("Transfer Function")){
+		ImGui::End();
+		return;
 	}
+	if (ImGui::InputInt("Function", &active_palette, 1, 10)) {
+		active_fcn_changed = true;
+	}
+	active_palette = glm::clamp(active_palette, 0, max_palettes - 1);
+	if (active_palette >= palettes.size()) {
+		palettes.resize(active_palette + 1, Palette());
+	}
+	ImGui::Text("Left click and drag to add/move points\nRight click to remove\n");
+
+	Palette &p = palettes[active_palette];
+	render_palette_ui(p);
+
+	ImGui::ListBoxHeader("Apply to Segments", 10);
+	// TODO: Get max # of segments
+	for (size_t i = 0; i < 15; ++i) {
+		bool sel = p.segments.find(i) != p.segments.end();
+		const std::string txt = "Segment" + std::to_string(i);
+		if (ImGui::Selectable(txt.c_str(), &sel)) {
+			if (sel) {
+				p.segments.insert(i);
+			} else {
+				p.segments.erase(i);
+			}
+		}
+	}
+	ImGui::ListBoxFooter();
+
 	ImGui::End();
 }
 void TransferFunction::render(){
-	// TODO: How many samples for a palette? 128 or 256 is probably plent
 	const int samples = 256;
 	// Upload to GL if the transfer function has changed
 	if (!palette_tex[0]){
 		glGenTextures(2, palette_tex.data());
 		// How to pick what texture unit we're on?
 		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_1D, palette_tex[0]);
-		glTexStorage1D(GL_TEXTURE_1D, 1, GL_RGBA8, samples);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glBindTexture(GL_TEXTURE_1D_ARRAY, palette_tex[0]);
+		glTexStorage2D(GL_TEXTURE_1D_ARRAY, 1, GL_RGBA8, samples, max_palettes);
+		glTexParameteri(GL_TEXTURE_1D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_1D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_1D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_1D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 		glBindTexture(GL_TEXTURE_2D, palette_tex[1]);
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, samples, 1);
@@ -179,60 +145,133 @@ void TransferFunction::render(){
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
-	if (fcn_changed){
-		// Sample the palette then upload the data
-		std::vector<uint8_t> palette(samples * 4, 0);
-		// Step along the alpha line and sample it
-		std::array<std::vector<glm::vec2>::const_iterator, 4> lit = {
-			rgba_lines[0].line.begin(), rgba_lines[1].line.begin(),
-			rgba_lines[2].line.begin(), rgba_lines[3].line.begin()
-		};
-		float step = 1.0 / samples;
-		for (size_t i = 0; i < samples; ++i){
-			float x = step * i;
-			for (size_t j = 0; j < lit.size(); ++j){
-				if (x > (lit[j] + 1)->x){
-					++lit[j];
-				}
-				assert(lit[j] != rgba_lines[j].line.end());
-				const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-				const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
-				palette[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
-			}
-		}
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_1D, palette_tex[0]);
-		glTexSubImage1D(GL_TEXTURE_1D, 0, 0, samples, GL_RGBA, GL_UNSIGNED_BYTE,
-				static_cast<const void*>(palette.data()));
 
-		// Go through and set alpha to all 1 and gamma correct the sample color values
-		lit[0] = rgba_lines[0].line.begin();
-		lit[1] = rgba_lines[1].line.begin();
-		lit[2] = rgba_lines[2].line.begin();
-		for (size_t i = 0; i < samples; ++i){
-			float x = step * i;
-			for (size_t j = 0; j < 3; ++j){
-				if (x > (lit[j] + 1)->x){
-					++lit[j];
-				}
-				assert(lit[j] != rgba_lines[j].line.end());
-				const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-				const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
-				palette[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
-			}
+	if (fcn_changed){
+		active_fcn_changed = true;
+		fcn_changed = false;
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_1D_ARRAY, palette_tex[0]);
+
+		// Sample and upload each palette
+		std::vector<uint8_t> imgbuf(samples * 4, 0);
+		for (size_t i = 0; i < palettes.size(); ++i) {
+			resample_palette(palettes[i], imgbuf);
+			glTexSubImage2D(GL_TEXTURE_1D_ARRAY, 0, 0, i, samples, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf.data());
 		}
+	}
+	if (active_fcn_changed){
+		active_fcn_changed = false;
+		std::vector<uint8_t> imgbuf(samples * 4, 0);
+		resample_palette(palettes[active_palette], imgbuf);
+		// Go through and set alpha to all 1 for the texture shown in the widget
 		for (size_t i = 0; i < samples; ++i){
-			palette[i * 4 + 3] = 255;
+			imgbuf[i * 4 + 3] = 255;
 		}
 		glBindTexture(GL_TEXTURE_2D, palette_tex[1]);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, samples, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-				static_cast<const void*>(palette.data()));
-		fcn_changed = false;
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, samples, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf.data());
 	}
 	// TODO: Bindless textures?
 	// Instead of this the palette should send its texture name to the volume
 	// so it can take care of finding it properly when the volume is rendered
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_1D, palette_tex[0]);
+}
+void TransferFunction::render_palette_ui(Palette &p) {
+	ImGui::RadioButton("Red", &p.active_line, 0); ImGui::SameLine();
+	ImGui::RadioButton("Green", &p.active_line, 1); ImGui::SameLine();
+	ImGui::RadioButton("Blue", &p.active_line, 2); ImGui::SameLine();
+	ImGui::RadioButton("Alpha", &p.active_line, 3);
+
+	glm::vec2 canvas_pos(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
+	glm::vec2 canvas_size(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
+
+	if (palette_tex[0]){
+		ImGui::Image(reinterpret_cast<void*>(palette_tex[1]), ImVec2(canvas_size.x, 16));
+		canvas_pos.y += 20;
+		canvas_size.y -= 20;
+	}
+
+	ImDrawList *draw_list = ImGui::GetWindowDrawList();
+	draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 255, 255));
+
+	const glm::vec2 view_scale(canvas_size.x, -canvas_size.y + 4);
+	const glm::vec2 view_offset(canvas_pos.x, canvas_pos.y + canvas_size.y - 4);
+
+	ImGui::InvisibleButton("canvas", canvas_size);
+	if (ImGui::IsItemHovered()){
+		glm::vec2 mouse_pos = glm::vec2(ImGui::GetIO().MousePos.x, ImGui::GetIO().MousePos.y);
+		mouse_pos = (mouse_pos - view_offset) / view_scale;
+		// Need to somehow find which line of RGBA the mouse is closest too
+		if (ImGui::GetIO().MouseDown[0]){
+			p.rgba_lines[p.active_line].move_point(mouse_pos.x, mouse_pos);
+			fcn_changed = true;
+		} else if (ImGui::IsMouseClicked(1)){
+			p.rgba_lines[p.active_line].remove_point(mouse_pos.x);
+			fcn_changed = true;
+		}
+	}
+
+	// Clip to the window active region
+	{
+		const glm::vec2 pad(0.f, ImGui::GetStyle().DisplayWindowPadding.y);
+		const glm::vec2 win_pos = ImGui::GetWindowPos();
+		draw_list->PushClipRect(win_pos + pad, win_pos + glm::vec2(ImGui::GetWindowSize()));
+	}
+	if (histogram && !histogram->empty()){
+		const glm::vec2 hview_scale(canvas_size.x, -canvas_size.y + 4);
+		const glm::vec2 hview_offset(canvas_pos.x, canvas_pos.y + canvas_size.y);
+		const size_t max_val = *std::max_element(histogram->begin(), histogram->end());
+		const float bar_width = 1.0f / static_cast<float>(histogram->size());
+		for (size_t i = 0; i < histogram->size(); ++i){
+			glm::vec2 bottom{bar_width * i, 0.f};
+			glm::vec2 top{bottom.x + bar_width, (*histogram)[i] / static_cast<float>(max_val)};
+			draw_list->AddRectFilled(hview_offset + hview_scale * bottom,
+					hview_offset + hview_scale * top, 0xffaaaaaa);
+		}
+	}
+
+	// TODO: Should also draw little boxes showing the clickable region for each
+	// line segment
+	for (int i = 0; i < static_cast<int>(p.rgba_lines.size()); ++i){
+		if (i == p.active_line){
+			continue;
+		}
+		for (size_t j = 0; j < p.rgba_lines[i].line.size() - 1; ++j){
+			const glm::vec2 &a = p.rgba_lines[i].line[j];
+			const glm::vec2 &b = p.rgba_lines[i].line[j + 1];
+			draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b,
+					p.rgba_lines[i].color, 2.0f);
+		}
+	}
+
+	// Draw the active line on top
+	for (size_t j = 0; j < p.rgba_lines[p.active_line].line.size() - 1; ++j){
+		const glm::vec2 &a = p.rgba_lines[p.active_line].line[j];
+		const glm::vec2 &b = p.rgba_lines[p.active_line].line[j + 1];
+		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b,
+				p.rgba_lines[p.active_line].color, 2.0f);
+	}
+	draw_list->PopClipRect();
+}
+void TransferFunction::resample_palette(const Palette &p, std::vector<uint8_t> &out) {
+	// Step along the alpha line and sample it
+	std::array<std::vector<glm::vec2>::const_iterator, 4> lit = {
+		p.rgba_lines[0].line.begin(), p.rgba_lines[1].line.begin(),
+		p.rgba_lines[2].line.begin(), p.rgba_lines[3].line.begin()
+	};
+	const int samples = 256;
+	const float step = 1.0 / samples;
+	for (size_t i = 0; i < samples; ++i){
+		const float x = step * i;
+		for (size_t j = 0; j < lit.size(); ++j){
+			if (x > (lit[j] + 1)->x){
+				++lit[j];
+			}
+			assert(lit[j] != p.rgba_lines[j].line.end());
+			const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
+			const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
+			out[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
+		}
+	}
 }
 
