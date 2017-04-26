@@ -114,7 +114,7 @@ void PersistenceCurveWidget::draw_persistence_curve(float ysize) {
     ImGui::PopStyleVar(2);
 }
 void PersistenceCurveWidget::draw_persistence_diagram(float ysize) {
-    ImGui::Text("Persistence Diagram...");
+    ImGui::Text("Persistence Diagram");
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, glm::vec2(0));
