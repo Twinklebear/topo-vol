@@ -24,7 +24,8 @@ class Volume : public vtkCommand {
 	// render_dims to track the dimensions of the full IDX data
 	// while dims tracks the size of the currently loaded data
 	vtkImageData *vol_data;
-	vtkDataArray *vtk_data;
+	vtkDataArray *vtk_data, *seg_data;
+	std::string data_field_name;
 	std::array<int, 3> dims;
 	GLenum internal_format, format, pixel_format;
 	bool uploaded;
@@ -80,5 +81,7 @@ private:
 	// Upload the vtk data passed, dims are assumed to be the same but the
 	// data type can differ
 	void upload_volume(vtkDataArray *data);
+	// Check if the voxel is in the selected segments
+	bool voxel_selected(const size_t i) const;
 };
 

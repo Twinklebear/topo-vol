@@ -118,7 +118,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	TransferFunction tfcn;
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
 	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
-	tfcn.histogram = volume.histogram;
+	tfcn.histogram = &volume.histogram;
 
 	bool ui_hovered = false;
 	bool quit = false;

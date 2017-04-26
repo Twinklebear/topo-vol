@@ -49,13 +49,14 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 }
 
 Volume::Volume(vtkImageData *vol, const std::string &array_name)
-	: vol_data(vol), uploaded(false), isovalue(0.f), show_isosurface(false),
+	: vol_data(vol), data_field_name(array_name), uploaded(false),
+	isovalue(0.f), show_isosurface(false),
 	transform_dirty(true), translation(0), scaling(1)
 {
 	vol->AddObserver(vtkCommand::ModifiedEvent, this);
 	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
-	int idx = 0;
-	vtk_data = fields->GetArray(array_name.c_str(), idx);
+	vtk_data = fields->GetArray(array_name.c_str());
+	seg_data = fields->GetArray("SegmentationId");
 	if (!vtk_data) {
 		throw std::runtime_error("Nonexistant field '" + array_name + "'");
 	}
@@ -159,19 +160,25 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	// Upload the volume data, it's changed
 	if (!uploaded){
 		uploaded = true;
+		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
+		vtk_data = fields->GetArray(data_field_name.c_str());
+		seg_data = fields->GetArray("SegmentationId");
+
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
-		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
-		upload_volume(fields->GetArray("ImageFile"));
+		upload_volume(vtk_data);
 
-		vtkDataArray *seg_data = fields->GetArray("SegmentationId");
 		if (seg_data) {
+			std::cout << "Got segmentation" << std::endl;
 			glActiveTexture(GL_TEXTURE3);
 			glBindTexture(GL_TEXTURE_3D, seg_texture);
 			upload_volume(seg_data);
+
 			glUseProgram(shader);
 			glUniform1i(glGetUniformLocation(shader, "has_segmentation_volume"), 1);
 			const int num_segments = seg_data->GetRange()[1] + 1;
+			// Re-allocing each time we change leaks some, but re-alloc and free seem to screw up
+			// the buffer? Probabaly a todo for me later (will)
 			segmentation_buf = allocator->alloc((num_segments + 1) * sizeof(int), glt::BufAlignment::SHADER_STORAGE_BUFFER);
 			{
 				int *buf = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT));
@@ -222,6 +229,7 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 
 	glBindBufferRange(GL_UNIFORM_BUFFER, 1, vol_props.buffer, vol_props.offset, vol_props.size);
 	if (segmentation_buf.size != 0) {
+		build_histogram();
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, segmentation_buf.buffer);
 		int *s = reinterpret_cast<int*>(segmentation_buf.map(GL_SHADER_STORAGE_BUFFER, GL_MAP_WRITE_BIT)) + 1;
 		for (const auto &x : segmentation_selections) {
@@ -262,14 +270,12 @@ void Volume::build_histogram(){
 	// For non f32 or f16 textures GL will normalize for us, given that we've done
 	// the proper range correction above if needed (e.g. for R16)
 	if (internal_format == GL_R8) {
-		std::cout << "Setting gl min max to {0, 1} for R8 data\n";
 		vol_min = 0;
 		vol_max = 1;
 	} else {
 		// Find the min/max values in the volume
 		vol_min = vtk_data->GetRange()[0];
 		vol_max = vtk_data->GetRange()[1];
-		std::cout << "Found min max = {" << vol_min << ", " << vol_max << "}\n";
 	}
 
 	// Build the histogram for the data
@@ -279,26 +285,32 @@ void Volume::build_histogram(){
 	if (format == GL_FLOAT){
 		float *data_ptr = reinterpret_cast<float*>(vtk_data->GetVoidPointer(0));
 		for (size_t i = 0; i < num_voxels; ++i){
-			size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
-			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
-			++histogram[bin];
+			if (voxel_selected(i)) {
+				size_t bin = static_cast<size_t>((data_ptr[i] - vol_min) / (vol_max - vol_min) * histogram.size());
+				bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
+				++histogram[bin];
+			}
 		}
 	} else if (format == GL_INT){
 		int32_t *data_ptr = reinterpret_cast<int32_t*>(vtk_data->GetVoidPointer(0));
 		for (size_t i = 0; i < num_voxels; ++i){
-			size_t bin = static_cast<size_t>(static_cast<float>(data_ptr[i] - vol_min)
-					/ (vol_max - vol_min) * histogram.size());
-			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
-			++histogram[bin];
+			if (voxel_selected(i)) {
+				size_t bin = static_cast<size_t>(static_cast<float>(data_ptr[i] - vol_min)
+						/ (vol_max - vol_min) * histogram.size());
+				bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
+				++histogram[bin];
+			}
 		}
 	} else if (format == GL_UNSIGNED_BYTE){
 		uint8_t *data_ptr = reinterpret_cast<uint8_t*>(vtk_data->GetVoidPointer(0));
 		const float data_min = vtk_data->GetRange()[0];
 		const float data_max = vtk_data->GetRange()[1];
 		for (size_t i = 0; i < num_voxels; ++i){
-			size_t bin = static_cast<size_t>((data_ptr[i] - data_min) / (data_max - data_min) * histogram.size());
-			bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
-			++histogram[bin];
+			if (voxel_selected(i)) {
+				size_t bin = static_cast<size_t>((data_ptr[i] - data_min) / (data_max - data_min) * histogram.size());
+				bin = glm::clamp(bin, size_t{0}, histogram.size() - 1);
+				++histogram[bin];
+			}
 		}
 	}
 }
@@ -320,5 +332,12 @@ void Volume::upload_volume(vtkDataArray *data) {
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+bool Volume::voxel_selected(const size_t i) const {
+	if (seg_data && !segmentation_selections.empty()) {
+		const int seg = *seg_data->GetTuple(i);
+		return segmentation_selections[seg] != 0;
+	}
+	return true;
 }
 

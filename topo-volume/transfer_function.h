@@ -44,7 +44,7 @@ class TransferFunction {
 
 public:
 	// The histogram for the volume data
-	std::vector<size_t> histogram;
+	std::vector<size_t> *histogram;
 
 	TransferFunction();
 	~TransferFunction();

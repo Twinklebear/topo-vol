@@ -55,7 +55,7 @@ void TransferFunction::Line::remove_point(const float &x){
 	}
 }
 
-TransferFunction::TransferFunction() : active_line(3), fcn_changed(true), palette_tex({0, 0}) {
+TransferFunction::TransferFunction() : active_line(3), fcn_changed(true), palette_tex({0, 0}), histogram(nullptr) {
 	rgba_lines[0].color = 0xff0000ff;
 	rgba_lines[1].color = 0xff00ff00;
 	rgba_lines[2].color = 0xffff0000;
@@ -119,12 +119,12 @@ void TransferFunction::draw_ui(){
 			}
 		}
 		draw_list->PushClipRect(canvas_pos, canvas_pos + canvas_size);
-		if (!histogram.empty()){
-			const size_t max_val = *std::max_element(histogram.begin(), histogram.end());
-			const float bar_width = 1.0f / static_cast<float>(histogram.size());
-			for (size_t i = 0; i < histogram.size(); ++i){
+		if (histogram && !histogram->empty()){
+			const size_t max_val = *std::max_element(histogram->begin(), histogram->end());
+			const float bar_width = 1.0f / static_cast<float>(histogram->size());
+			for (size_t i = 0; i < histogram->size(); ++i){
 				glm::vec2 bottom{bar_width * i, 0.f};
-				glm::vec2 top{bottom.x + bar_width, histogram[i] / static_cast<float>(max_val)};
+				glm::vec2 top{bottom.x + bar_width, (*histogram)[i] / static_cast<float>(max_val)};
 				draw_list->AddRectFilled(view_offset + view_scale * bottom, view_offset + view_scale * top, 0xffaaaaaa);
 			}
 		}
