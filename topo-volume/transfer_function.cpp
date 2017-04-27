@@ -118,7 +118,7 @@ void TransferFunction::draw_ui(){
 	ImGui::ListBoxHeader("Apply to Segments", std::min(size_t(10), num_segmentations));
 	for (size_t i = 0; i < num_segmentations; ++i) {
 		bool sel = p.segments.find(i) != p.segments.end();
-		const std::string txt = "Segment" + std::to_string(i);
+		const std::string txt = "Segment " + std::to_string(i);
 		// Deselection is done by selecting the segment in a different palette,
 		// each segment must be associated with a palette to be rendered
 		if (ImGui::Selectable(txt.c_str(), &sel) && sel) {
