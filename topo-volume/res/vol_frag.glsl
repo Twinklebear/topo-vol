@@ -17,6 +17,12 @@ flat in vec3 transformed_eye;
 
 out vec4 color;
 
+// Simple psuedo-randomness
+// http://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+float rand(vec2 co){
+	return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+}
+
 bool segment_selected(vec3 p, out uint palette) {
 	palette = 0;
 	if (has_segmentation_volume) {
@@ -55,13 +61,14 @@ void main(void){
 	vec3 tmax = max(tmin_tmp, tmax_tmp);
 	float tenter = max(0, max(tmin.x, max(tmin.y, tmin.z)));
 	float texit = min(tmax.x, min(tmax.y, tmax.z));
+	const vec3 dt_vec = 1.0 / (vol_dim * abs(ray_dir));
+	const float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z));
+	tenter += dt * rand(gl_FragCoord.xy);
 	if (tenter > texit){
 		discard;
 	}
 
 	color = vec4(0);
-	vec3 dt_vec = 1.0 / (vol_dim * abs(ray_dir));
-	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z)) * 0.25;
 	vec3 p = transformed_eye + tenter * ray_dir;
 
 	float prev;
