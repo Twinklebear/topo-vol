@@ -289,6 +289,8 @@ void TransferFunction::render_palette_ui(Palette &p) {
 		const glm::vec2 &b = p.rgba_lines[p.active_line].line[j + 1];
 		draw_list->AddLine(view_offset + view_scale * a, view_offset + view_scale * b,
 				p.rgba_lines[p.active_line].color, 2.0f);
+		draw_list->AddCircleFilled(view_offset + view_scale * a, 4.f, p.rgba_lines[p.active_line].color);
+		draw_list->AddCircleFilled(view_offset + view_scale * b, 4.f, p.rgba_lines[p.active_line].color);
 	}
 	draw_list->PopClipRect();
 }
