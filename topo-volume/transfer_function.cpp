@@ -229,6 +229,7 @@ void TransferFunction::render_palette_ui(Palette &p) {
 		canvas_pos.y += 20;
 		canvas_size.y -= 20;
 	}
+	canvas_size.y = std::min(canvas_size.y, 160.f);
 
 	ImDrawList *draw_list = ImGui::GetWindowDrawList();
 	draw_list->AddRect(canvas_pos, canvas_pos + canvas_size, ImColor(255, 255, 255));
