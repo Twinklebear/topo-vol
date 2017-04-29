@@ -109,6 +109,8 @@ void TreeWidget::draw_ui() {
 		selected_segmentations.clear();
 	}
 
+	ImGui::Text("Click to select branches, Ctrl-click to select multiple");
+
 	// This is based on the material editor node-link diagram from
 	// https://gist.github.com/ocornut/7e9b3ec566a333d725d4
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, glm::vec2(1));
