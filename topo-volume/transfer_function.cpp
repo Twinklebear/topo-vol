@@ -185,7 +185,7 @@ void TransferFunction::render(){
 	// Instead of this the palette should send its texture name to the volume
 	// so it can take care of finding it properly when the volume is rendered
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_1D, palette_tex[0]);
+	glBindTexture(GL_TEXTURE_1D_ARRAY, palette_tex[0]);
 }
 void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
 	vtkContourForests *cf = dynamic_cast<vtkContourForests*>(caller);
