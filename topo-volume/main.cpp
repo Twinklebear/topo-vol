@@ -92,17 +92,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		viewing_buf.unmap(GL_UNIFORM_BUFFER);
 	}
 
-	// TODO: Contour/Split/Merge tree widget, pick a branch or multiple branches
-	// in this widget and select those segments in the volume rendering.
-	// The volume rendering picking can be done by looking up the same voxel position
-	// in a separate Segmentation ID texture and discarding voxels accordingly.
-	// The tree widget can be done by translating the arcs/points from TTK to a
-	// more abstract representation, take the min/max ImageFile value for each group
-	// of points for a segmentation id and draw the graph with these points connecting to
-	// each other and splitting. The points come in the same order as the arcs,
-	// where arc 0 is segmentation id 0 and starts at point 0 and ends at point 1.
-	// Can also check the point locations for the node/arc points to confirm this.
-	PersistenceCurveWidget persistence_curve_widget(reader, debuglevel); // come on ... let me debug !
+	PersistenceCurveWidget persistence_curve_widget(reader, debuglevel);
 
 	vtkSmartPointer<vtkContourForests> contour_forest
 		= vtkSmartPointer<vtkContourForests>::New();
