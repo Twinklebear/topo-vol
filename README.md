@@ -1,6 +1,6 @@
-# Topo-Vol
+# topo-vol
 
-Topo-Vol is a topology guided volume exploration and analysis tool, written for
+topo-vol is a topology guided volume exploration and analysis tool, written for
 the final project in
 [Bei Wang's Computational Topology Course](http://www.sci.utah.edu/~beiwang/teaching/cs6170-spring-2017/schedule.html).
 It is built on top of the [Topology ToolKit](https://topology-tool-kit.github.io/) and
@@ -21,8 +21,8 @@ OpenGL 4.3 is also required to run the program.
 After getting GLM and SDL2 download and build [VTK](http://vtk.org/) and follow the
 [TTK installation instructions](https://topology-tool-kit.github.io/installation.html) to build TTK.
 Compiling TTK is optional, due to how they configure their build system when using it externally
-the required TTK code is actually built by Topo-Vol when you build the project.
-Once these packages are setup Topo-Vol can be built with CMake. When running CMake you'll
+the required TTK code is actually built by topo-vol when you build the project.
+Once these packages are setup topo-vol can be built with CMake. When running CMake you'll
 want to specify the location of the VTK cmake file if it's non-standard, and the path to ttk.cmake
 in TTK's `core/` directory. For example:
 
@@ -38,7 +38,7 @@ building the Release build for better performance.
 
 ## Running
 
-Topo-Vol currently supports scalar-field VTI files with data type `char`, `unsigned char` or `float`.
+topo-vol currently supports scalar-field VTI files with data type `char`, `unsigned char` or `float`.
 To get some data to test on you can load some of the raw files from the
 [Open SciVis Datasets](https://github.com/pavolzetor/open_scivis_datasets)
 collection in [ParaView](http://www.paraview.org/) and export them as VTI. If you
