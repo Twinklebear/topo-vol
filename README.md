@@ -46,7 +46,8 @@ built TTK with ParaView you can use that build to convert the data. Note that la
 will require much longer computation time.
 
 Here's an example screenshot after performing separate classification of
-different segments in the contour tree on the Nucleon dataset.
+different segments in the contour tree on the Nucleon dataset.  For an
+example of using the system for analysis see the video of a [Tooth analysis session](https://youtu.be/S7Gm2hYsHKU).
 
 ![nucleon classification](http://i.imgur.com/0geW8ma.png)
 
