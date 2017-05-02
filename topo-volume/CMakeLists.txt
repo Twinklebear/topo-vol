@@ -17,7 +17,7 @@ add_definitions(-DGLM_FORCE_RADIANS)
 add_subdirectory(imgui-1.49)
 add_subdirectory(glt)
 add_subdirectory(res)
-add_subdirectory(ttk-bs)
+add_subdirectory(ttk-lib)
 include_directories(${TTK_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TTK_CMAKE_CXX_FLAGS} -fopenmp")
 
