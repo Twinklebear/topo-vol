@@ -1,4 +1,5 @@
 #include <thread>
+#include <regex>
 #include <vector>
 #include <string>
 #include <cassert>
@@ -8,6 +9,7 @@
 #include <glm/ext.hpp>
 #include <vtkSmartPointer.h>
 #include <vtkXMLImageDataReader.h>
+#include <vtkImageReader2.h>
 #include <vtkImageData.h>
 #include <vtkThreshold.h>
 #include <vtkContourForests.h>
@@ -33,16 +35,26 @@ static unsigned int debuglevel = 0;
 
 void run_app(SDL_Window *win, const std::vector<std::string> &args);
 void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
-void DefaultCommands(int argc, const char **argv) {
-    for (int i = 1; i < argc; ++i) {
-	std::string str(argv[i]);
-	if (str.compare("-debug") == 0) {
-	    debuglevel = std::stoi(argv[++i]);
+void default_commands(int argc, const char **argv) {
+	for (int i = 1; i < argc; ++i) {
+		std::string str(argv[i]);
+		if (str.compare("-debug") == 0) {
+			debuglevel = std::stoi(argv[++i]);
+		}
 	}
-    }
 }
+// Load a VTI file or RAW volume. RAW volume files must follow
+// the naming convention used in the Open SciVis Datasets collection
+// https://github.com/pavolzetor/open_scivis_datasets where
+// the file name is <name>_<X>x<Y>x<Z>_<data type>.raw
+vtkSmartPointer<vtkImageData> load_volume(const std::string &file);
+
 int main(int argc, const char **argv) {
-        DefaultCommands(argc, argv);
+	if (argc < 2) {
+		std::cerr << "A filename is required!\nUsage: ./topo-vol <volume file>\n";
+		return 1;
+	}
+	default_commands(argc, argv);
 	SDL_Window *win = nullptr;
 	SDL_GLContext ctx = nullptr;
 	setup_window(win, ctx);
@@ -54,13 +66,7 @@ int main(int argc, const char **argv) {
 	return 0;
 }
 void run_app(SDL_Window *win, const std::vector<std::string> &args) {
-	// Read the volume data using vtk
-	vtkSmartPointer<vtkXMLImageDataReader> reader
-		= vtkSmartPointer<vtkXMLImageDataReader>::New();
-	reader->SetFileName(args[1].c_str());
-	reader->Update();
-	vtkImageData *vol = reader->GetOutput();
-	assert(vol);
+	vtkSmartPointer<vtkImageData> vol = load_volume(args[1]);
 
 	glm::vec3 vol_render_size;
 	for (size_t i = 0; i < 3; ++i) {
@@ -92,7 +98,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		viewing_buf.unmap(GL_UNIFORM_BUFFER);
 	}
 
-	PersistenceCurveWidget persistence_curve_widget(reader, debuglevel);
+	PersistenceCurveWidget persistence_curve_widget(vol.Get(), debuglevel);
 
 	vtkSmartPointer<vtkContourForests> contour_forest
 		= vtkSmartPointer<vtkContourForests>::New();
@@ -238,4 +244,57 @@ void setup_window(SDL_Window *&win, SDL_GLContext &ctx) {
 	glClearColor(0.1, 0.1, 0.1, 1);
 	glClearDepth(1.0);
 }
+vtkSmartPointer<vtkImageData> load_volume(const std::string &file) {
+	vtkSmartPointer<vtkImageData> vol = nullptr;
+	const std::string file_ext = file.substr(file.size() - 3);
+	if (file_ext == "vti") {
+		vtkSmartPointer<vtkXMLImageDataReader> reader
+			= vtkSmartPointer<vtkXMLImageDataReader>::New();
+		reader->SetFileName(file.c_str());
+		reader->Update();
+		vol = reader->GetOutput();
+	} else if (file_ext == "raw") {
+		std::cout << "Note: raw files do not have voxel spacing information, if your "
+			<< "file does not have square voxels it may appear incorrectly scaled\n";
+
+		const std::regex match_filename("(\\w+)_(\\d+)x(\\d+)x(\\d+)_(.+)\\.raw");
+		auto matches = std::sregex_iterator(file.begin(), file.end(), match_filename);
+		if (matches == std::sregex_iterator() || matches->size() != 6) {
+			std::cerr << "Unrecognized raw volume naming scheme, expected a format like: "
+				<< "'<name>_<X>x<Y>x<Z>_<data type>.raw' but '" << file << "' did not match"
+				<< std::endl;
+			throw std::runtime_error("Invalaid raw file naming scheme");
+		}
+
+		std::array<int, 3> dims = {std::stoi((*matches)[2]), std::stoi((*matches)[3]), std::stoi((*matches)[4])};
+		std::string data_type = (*matches)[5];
+		int vtk_data_type = -1;
+		if (data_type == "uint8") {
+			vtk_data_type = VTK_UNSIGNED_CHAR;
+		} else if (data_type == "int8") {
+			vtk_data_type = VTK_CHAR;
+		} else if (data_type == "uint16") {
+			vtk_data_type = VTK_UNSIGNED_SHORT;
+		} else if (data_type == "int16") {
+			vtk_data_type = VTK_SHORT;
+		} else if (data_type == "float32") {
+			vtk_data_type = VTK_FLOAT;
+		} else {
+			throw std::runtime_error("Unsupported or unrecognized data type: " + data_type);
+		}
+
+		vtkSmartPointer<vtkImageReader2> reader = vtkSmartPointer<vtkImageReader2>::New();
+		reader->SetFileName(file.c_str());
+		reader->SetFileDimensionality(3);
+		reader->SetDataExtent(0, dims[0] - 1, 0, dims[1] - 1, 0, dims[2] - 1);
+		reader->SetDataScalarType(vtk_data_type);
+		reader->Update();
+		vol = reader->GetOutput();
+	}
+	if (vol.Get() == nullptr) {
+		throw std::runtime_error("Failed to load volume file " + file);
+	}
+	return vol;
+}
+
 

@@ -34,6 +34,16 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 			gl_internal = GL_R8;
 			gl_type = GL_UNSIGNED_BYTE;
 			break;
+		case VTK_SHORT:
+			gl_internal = GL_R16I;
+			gl_type = GL_SHORT;
+			pixel_format = GL_RED_INTEGER;
+			break;
+		case VTK_UNSIGNED_SHORT:
+			gl_internal = GL_R16UI;
+			gl_type = GL_UNSIGNED_SHORT;
+			pixel_format = GL_RED_INTEGER;
+			break;
 		case VTK_FLOAT:
 			gl_internal = GL_R32F;
 			gl_type = GL_FLOAT;
@@ -330,7 +340,7 @@ void Volume::upload_volume(vtkDataArray *data) {
 	glTexImage3D(GL_TEXTURE_3D, 0, internal_fmt, dims[0], dims[1], dims[2], 0, px_fmt,
 			data_fmt, (char*)data->GetVoidPointer(0));
 
-	if (px_fmt == GL_RED_INTEGER) {
+	if (std::strcmp(data->GetName(), "SegmentationId") == 0) {
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	} else {

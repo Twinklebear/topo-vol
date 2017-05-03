@@ -9,12 +9,12 @@
 #include <vtkUnstructuredGrid.h>
 #include "persistence_curve_widget.h"
 
-PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input, unsigned int debug)
+PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int debug)
     : tree_type(ttk::TreeType::Contour), debuglevel(debug)
 {
     diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
     diagram->SetdebugLevel_(debuglevel);
-    diagram->SetInputConnection(input->GetOutputPort());
+    diagram->SetInputData(data);
 	diagram->SetUseInputOffsetScalarField(false);
 
     // Compute critical points
@@ -37,14 +37,14 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
     simplification->SetUseAllCores(true);
     simplification->SetThreadNumber(std::thread::hardware_concurrency());
 	simplification->SetUseInputOffsetScalarField(false);
-    simplification->SetInputConnection(0, input->GetOutputPort());
+    simplification->SetInputData(0, data);
     simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
 
     // We always show the full curve, without simplfication for the
     // selected tree type
     vtkcurve = vtkSmartPointer<vtkPersistenceCurve>::New();
     vtkcurve->SetdebugLevel_(debuglevel);
-    vtkcurve->SetInputConnection(input->GetOutputPort());
+    vtkcurve->SetInputData(data);
     vtkcurve->SetComputeSaddleConnectors(false);
     vtkcurve->SetUseAllCores(true);
     vtkcurve->SetUseInputOffsetScalarField(false);

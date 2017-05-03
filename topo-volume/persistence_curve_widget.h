@@ -50,7 +50,7 @@ public:
      * topological simplification selected by the user can then be gotten
      * via `get_simplification`
      */
-    PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> data, unsigned int debug = 0);
+    PersistenceCurveWidget(vtkImageData *data, unsigned int debug = 0);
     // Get the topological simplification resulting from the user's selection
     vtkTopologicalSimplification* get_simplification() const;
     /**
