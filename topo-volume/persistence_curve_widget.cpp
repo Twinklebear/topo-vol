@@ -10,7 +10,7 @@
 #include "persistence_curve_widget.h"
 
 PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataReader> input, unsigned int debug)
-    : tree_type(ttk::TreeType::Split), debuglevel(debug)
+    : tree_type(ttk::TreeType::Contour), debuglevel(debug)
 {
     diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
     diagram->SetdebugLevel_(debuglevel);
