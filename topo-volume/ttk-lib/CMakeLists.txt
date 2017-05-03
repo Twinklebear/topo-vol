@@ -1,4 +1,4 @@
-project(ttk-bs)
+project(ttk-lib)
 
 option(withVTKCMD "Enable VTK CMD support" true)
 option(withVTK "Enable VTK support" true)
@@ -30,9 +30,9 @@ ttk_add_vtkWrapper_package(vtkTopologicalSimplification)
 # This is basically a dummy wrapper lib to hold the ttk libraries
 # because they don't build their code as a proper library and
 # instead do this insane injection of their src files and deps
-# into the using project and force all these crappy cmake wrapper macros
+# into the using project and force all these cmake wrapper macros
 # on you instead.
-ttk_external_lib(ttk-bs)
+ttk_external_lib(ttk-lib)
 get_property(PROJECT_INCLUDES DIRECTORY 
 	${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 
