@@ -39,12 +39,19 @@ building the Release build for better performance.
 
 ## Running
 
-topo-vol currently supports scalar-field VTI files with data type `char`, `unsigned char` or `float`.
+topo-vol currently supports scalar-field VTI files with data type `char`, `unsigned char`,
+`short`, `unsigned short` or `float`.
 To get some data to test on you can load some of the raw files from the
 [Open SciVis Datasets](https://github.com/pavolzetor/open_scivis_datasets)
-collection in [ParaView](http://www.paraview.org/) and export them as VTI. If you
+collection directly, or load them in [ParaView](http://www.paraview.org/) and export them as VTI. If you
 built TTK with ParaView you can use that build to convert the data. Note that larger datasets
-will require much longer computation time.
+will require much longer computation time and memory. When loading a raw file the
+file name must contain information about the dimensions and data type, in the format
+used by the Open SciVis Datasets collection. The format is:
+
+```
+<volume name>_<X dim>x<Y dim>x<Z dim>_<data type>.raw
+```
 
 Here's an example screenshot after performing separate classification of
 different segments in the contour tree on the Nucleon dataset.  For an
