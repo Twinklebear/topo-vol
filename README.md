@@ -20,8 +20,6 @@ OpenGL 4.3 is also required to run the program.
 
 After getting GLM and SDL2 download and build [VTK](http://vtk.org/) and follow the
 [TTK installation instructions](https://topology-tool-kit.github.io/installation.html) to build TTK.
-If your system doesn't provide VTK development package, you need to compile VTK with options including
-VTK_WRAP_PYTHON=ON, VTK_WRAP_TCL=ON, VTKMY_WRAP_PYTHON=ON, VTKMY_WRAP_TCL=ON, VTK_SMP_IMPLEMENTATION_TYPE=OpenMP.
 Compiling TTK is optional, due to how they configure their build system when using it externally
 the required TTK code is actually built by topo-vol when you build the project.
 Once these packages are setup topo-vol can be built with CMake. When running CMake you'll
