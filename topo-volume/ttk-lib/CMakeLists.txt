@@ -1,9 +1,6 @@
 project(ttk-lib)
 
-option(withVTKCMD "Enable VTK CMD support" true)
-option(withVTK "Enable VTK support" true)
-set(withVTKCMD true)
-set(withVTK true)
+set(TTK_BUILD_MODE "VTK-CMD")
 
 # path to the common code base
 find_path(TTK_DIR ttk.cmake

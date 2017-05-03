@@ -15,6 +15,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
     diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
     diagram->SetdebugLevel_(debuglevel);
     diagram->SetInputConnection(input->GetOutputPort());
+	diagram->SetUseInputOffsetScalarField(false);
 
     // Compute critical points
     critical_pairs = vtkSmartPointer<vtkThreshold>::New();
@@ -35,6 +36,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
     simplification->SetdebugLevel_(debuglevel);
     simplification->SetUseAllCores(true);
     simplification->SetThreadNumber(std::thread::hardware_concurrency());
+	simplification->SetUseInputOffsetScalarField(false);
     simplification->SetInputConnection(0, input->GetOutputPort());
     simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
 
@@ -45,6 +47,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkSmartPointer<vtkXMLImageDataRe
     vtkcurve->SetInputConnection(input->GetOutputPort());
     vtkcurve->SetComputeSaddleConnectors(false);
     vtkcurve->SetUseAllCores(true);
+    vtkcurve->SetUseInputOffsetScalarField(false);
     vtkcurve->SetThreadNumber(std::thread::hardware_concurrency());
     vtkcurve->Update();
     update_persistence_curve();
