@@ -26,8 +26,14 @@ Once these packages are setup topo-vol can be built with CMake. When running CMa
 want to specify the location of the VTK cmake file if it's non-standard, and the path to ttk.cmake
 in TTK's `core/` directory. For example:
 
+**Note:** I've fixed TTK's build system for compiling it as a library, use my
+[fork](https://github.com/Twinklebear/ttk) and make and install TTK until this
+is merged into main TTK.
+
 ```
-cmake -DVTK_DIR=<path to VTKConfig.cmake> -DTTK_DIR=<path to ttk.cmake>
+cmake -DVTK_DIR=<path to VTKConfig.cmake> \
+	-DTTKBase_DIR=<path to TTKBaseConfig.cmake> \
+	-DTTKVTK_DIR=<path to TTKVTKConfig.cmake>
 ```
 
 Note that due to some issues with how TTK handles compiling packages depending on it
