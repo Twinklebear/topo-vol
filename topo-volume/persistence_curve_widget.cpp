@@ -12,7 +12,7 @@
 PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int debug)
     : tree_type(ttk::TreeType::Contour), debuglevel(debug)
 {
-    diagram = vtkSmartPointer<vtkPersistenceDiagram>::New();
+    diagram = vtkSmartPointer<ttkPersistenceDiagram>::New();
     diagram->SetdebugLevel_(debuglevel);
     diagram->SetInputData(data);
 	diagram->SetUseInputOffsetScalarField(false);
@@ -32,7 +32,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int 
     persistent_pairs->ThresholdBetween(threshold_range[0], 999999);
 
     // Simplifying the input data to remove non-persistent pairs
-    simplification = vtkSmartPointer<vtkTopologicalSimplification>::New();
+    simplification = vtkSmartPointer<ttkTopologicalSimplification>::New();
     simplification->SetdebugLevel_(debuglevel);
     simplification->SetUseAllCores(true);
     simplification->SetThreadNumber(std::thread::hardware_concurrency());
@@ -42,7 +42,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int 
 
     // We always show the full curve, without simplfication for the
     // selected tree type
-    vtkcurve = vtkSmartPointer<vtkPersistenceCurve>::New();
+    vtkcurve = vtkSmartPointer<ttkPersistenceCurve>::New();
     vtkcurve->SetdebugLevel_(debuglevel);
     vtkcurve->SetInputData(data);
     vtkcurve->SetComputeSaddleConnectors(false);
@@ -53,7 +53,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int 
     update_persistence_curve();
     update_persistence_diagram();
 }
-vtkTopologicalSimplification* PersistenceCurveWidget::get_simplification() const {
+ttkTopologicalSimplification* PersistenceCurveWidget::get_simplification() const {
     return simplification.Get();
 }
 void PersistenceCurveWidget::draw_ui() {

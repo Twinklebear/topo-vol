@@ -7,11 +7,11 @@
 #include <cmath>
 // include the vtk headers
 #include <vtkSmartPointer.h>
-#include <vtkPersistenceCurve.h>
 #include <vtkXMLImageDataReader.h>
 #include <vtkThreshold.h>
-#include <vtkPersistenceDiagram.h>
-#include <vtkTopologicalSimplification.h>
+#include <ttkPersistenceCurve.h>
+#include <ttkPersistenceDiagram.h>
+#include <ttkTopologicalSimplification.h>
 // include the local headers
 #include <glm/glm.hpp>
 #include "imgui-1.49/imgui.h"
@@ -31,10 +31,10 @@ public:
 	double tnode[2];
     };
 private:
-    vtkSmartPointer<vtkPersistenceDiagram> diagram;
+    vtkSmartPointer<ttkPersistenceDiagram> diagram;
     vtkSmartPointer<vtkThreshold> critical_pairs, persistent_pairs;
-    vtkSmartPointer<vtkTopologicalSimplification> simplification;
-    vtkSmartPointer<vtkPersistenceCurve> vtkcurve;
+    vtkSmartPointer<ttkTopologicalSimplification> simplification;
+    vtkSmartPointer<ttkPersistenceCurve> vtkcurve;
     ttk::TreeType tree_type;
 
     // Data for the ui display
@@ -52,7 +52,7 @@ public:
      */
     PersistenceCurveWidget(vtkImageData *data, unsigned int debug = 0);
     // Get the topological simplification resulting from the user's selection
-    vtkTopologicalSimplification* get_simplification() const;
+    ttkTopologicalSimplification* get_simplification() const;
     /**
      * @brief plot curve
      */

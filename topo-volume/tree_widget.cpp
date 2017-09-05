@@ -58,7 +58,7 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
 	return os;
 }
 
-TreeWidget::TreeWidget(vtkSmartPointer<vtkContourForests> cf, vtkTopologicalSimplification *simplification)
+TreeWidget::TreeWidget(vtkSmartPointer<ttkContourForests> cf, ttkTopologicalSimplification *simplification)
 	: contour_forest(cf), tree_type(ttk::TreeType::Contour), tree_arcs(nullptr), tree_nodes(nullptr),
 	zoom_amount(1.f), scrolling(0.f)
 {

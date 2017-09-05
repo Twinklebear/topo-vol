@@ -12,10 +12,10 @@
 #include <vtkImageReader2.h>
 #include <vtkImageData.h>
 #include <vtkThreshold.h>
-#include <vtkContourForests.h>
-#include <vtkPersistenceCurve.h>
-#include <vtkPersistenceDiagram.h>
-#include <vtkTopologicalSimplification.h>
+#include <ttkContourForests.h>
+#include <ttkPersistenceCurve.h>
+#include <ttkPersistenceDiagram.h>
+#include <ttkTopologicalSimplification.h>
 
 #include "imgui-1.49/imgui.h"
 #include "imgui-1.49/imgui_impl_sdl_gl3.h"
@@ -100,8 +100,8 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	PersistenceCurveWidget persistence_curve_widget(vol.Get(), debuglevel);
 
-	vtkSmartPointer<vtkContourForests> contour_forest
-		= vtkSmartPointer<vtkContourForests>::New();
+	vtkSmartPointer<ttkContourForests> contour_forest
+		= vtkSmartPointer<ttkContourForests>::New();
 	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
 	contour_forest->SetUseInputOffsetScalarField(true);
 	contour_forest->SetinputOffsetScalarFieldName_("OutputOffsetScalarField");

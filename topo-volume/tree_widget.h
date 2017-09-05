@@ -5,9 +5,9 @@
 #include <vector>
 #include <vtkPolyData.h>
 #include <vtkCommand.h>
-#include <vtkContourForests.h>
-#include <vtkTopologicalSimplification.h>
 #include <vtkSmartPointer.h>
+#include <ttkContourForests.h>
+#include <ttkTopologicalSimplification.h>
 
 // A branch in the tree, representing a specific segmentation
 // id of the data
@@ -42,7 +42,7 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n);
  * can be queried for use in later filtering operations.
  */
 class TreeWidget : public vtkCommand {
-	vtkSmartPointer<vtkContourForests> contour_forest;
+	vtkSmartPointer<ttkContourForests> contour_forest;
 	int tree_type;
 	vtkPolyData *tree_arcs, *tree_nodes;
 	std::vector<uint32_t> selected_segmentations;
@@ -56,8 +56,8 @@ public:
 	 * from TTK's ContourForests VTK filter. Will watch the simplification
 	 * for changes and re-update the contour forest accordingly
 	 */
-	TreeWidget(vtkSmartPointer<vtkContourForests> contour_forest,
-			vtkTopologicalSimplification *simplification);
+	TreeWidget(vtkSmartPointer<ttkContourForests> contour_forest,
+			ttkTopologicalSimplification *simplification);
 	void draw_ui();
 	const std::vector<uint32_t>& get_selection() const;
 	// Get the current tree type

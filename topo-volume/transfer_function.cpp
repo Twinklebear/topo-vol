@@ -6,7 +6,7 @@
 #include <vtkType.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDataSet.h>
-#include <vtkContourForests.h>
+#include <ttkContourForests.h>
 #include "imgui-1.49/imgui.h"
 #include <SDL.h>
 #include <glm/ext.hpp>
@@ -188,7 +188,7 @@ void TransferFunction::render(){
 	glBindTexture(GL_TEXTURE_1D_ARRAY, palette_tex[0]);
 }
 void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
-	vtkContourForests *cf = dynamic_cast<vtkContourForests*>(caller);
+	ttkContourForests *cf = dynamic_cast<ttkContourForests*>(caller);
 	if (cf) {
 		vtkDataSet *data = cf->GetOutput(2);
 		vtkDataSetAttributes *fields = data->GetAttributes(vtkDataSet::POINT);

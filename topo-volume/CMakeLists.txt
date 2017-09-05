@@ -26,9 +26,9 @@ add_executable(topo-volume main.cpp volume.cpp transfer_function.cpp tree_widget
 set_property(TARGET topo-volume PROPERTY CXX_STANDARD 14)
 target_link_libraries(topo-volume ${VTK_LIBRARIES} ${SDL2_LIBRARY} ${OPENGL_LIBRARIES} imgui glt)
 target_link_libraries(topo-volume
-	ttk::vtk::vtkContourForests
-	ttk::vtk::vtkPersistenceCurve
-	ttk::vtk::vtkPersistenceDiagram
-	ttk::vtk::vtkTopologicalSimplification)
+	ttk::vtk::ttkContourForests
+	ttk::vtk::ttkPersistenceCurve
+	ttk::vtk::ttkPersistenceDiagram
+	ttk::vtk::ttkTopologicalSimplification)
 
 
