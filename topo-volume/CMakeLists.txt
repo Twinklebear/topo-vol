@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(TopoVol)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${TopoVol_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${TopoVol_SOURCE_DIR}/cmake")
 set(RESOURCE_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/res)
 
 find_package(VTK REQUIRED)
