@@ -27,15 +27,16 @@ set_target_properties(topo-volume PROPERTIES CXX_STANDARD 14)
 target_link_libraries(topo-volume PUBLIC
 	${VTK_LIBRARIES}
 	${SDL2_LIBRARY}
-	${OPENGL_LIBRARIES}
 	imgui
 	glt
-	#ttk::base::contourForests
-	#ttk::vtk::ttkContourForests
+	OpenGL::OpenGL
 	ttk::base::ftmTree
 	ttk::vtk::ttkFTMTree
 	ttk::vtk::ttkPersistenceCurve
 	ttk::vtk::ttkPersistenceDiagram
 	ttk::vtk::ttkTopologicalSimplification)
 
+if (TARGET OpenGL::GLX)
+	target_link_libraries(topo-volume PUBLIC OpenGL::GLX)
+endif()
 
