@@ -6,7 +6,12 @@
 #include <utility>
 #include <iostream>
 #include <algorithm>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+#undef GLM_ENABLE_EXPERIMENTAL
+
 #include <vtkDataSetAttributes.h>
 #include <vtkDataSet.h>
 #include <vtkIdList.h>
@@ -58,8 +63,8 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
 	return os;
 }
 
-TreeWidget::TreeWidget(vtkSmartPointer<ttkContourForests> cf, ttkTopologicalSimplification *simplification)
-	: contour_forest(cf), tree_type(ttk::TreeType::Contour), tree_arcs(nullptr), tree_nodes(nullptr),
+TreeWidget::TreeWidget(vtkSmartPointer<ttkFTMTree> cf, ttkTopologicalSimplification *simplification)
+        : contour_forest(cf), tree_type(ttk::ftm::TreeType::Contour), tree_arcs(nullptr), tree_nodes(nullptr),
 	zoom_amount(1.f), scrolling(0.f)
 {
 	// Watch for updates to the contour forest
@@ -89,9 +94,9 @@ void TreeWidget::draw_ui() {
 
 	int tree_selection = 0;
 	switch (tree_type) {
-		case ttk::TreeType::Contour: tree_selection = 0; break;
-		case ttk::TreeType::Split: tree_selection = 1; break;
-		case ttk::TreeType::Join: tree_selection = 2; break;
+		case ttk::ftm::TreeType::Contour: tree_selection = 0; break;
+		case ttk::ftm::TreeType::Split: tree_selection = 1; break;
+		case ttk::ftm::TreeType::Join: tree_selection = 2; break;
 		default: tree_selection = 0;
 	}
 	ImGui::Text("Tree Type");
@@ -229,9 +234,9 @@ void TreeWidget::draw_ui() {
 	// Update the tree if we chose a new type
 	int new_tree_type = tree_type;
 	switch (tree_selection) {
-		case 0: new_tree_type = ttk::TreeType::Contour; break;
-		case 1: new_tree_type = ttk::TreeType::Split; break;
-		case 2: new_tree_type = ttk::TreeType::Join; break;
+		case 0: new_tree_type = ttk::ftm::TreeType::Contour; break;
+		case 1: new_tree_type = ttk::ftm::TreeType::Split; break;
+		case 2: new_tree_type = ttk::ftm::TreeType::Join; break;
 		default: break;
 	}
 	if (new_tree_type != tree_type) {
@@ -256,12 +261,12 @@ void TreeWidget::Execute(vtkObject *caller, unsigned long event_id, void *call_d
 		caller->AddObserver(event_id, this);
 	}
 }
-ttk::TreeType TreeWidget::get_tree_type() const {
+ttk::ftm::TreeType TreeWidget::get_tree_type() const {
 	switch (tree_type) {
-		case 0: return ttk::TreeType::Contour;
-		case 1: return ttk::TreeType::Split;
-		case 2: return ttk::TreeType::Join;
-		default: return ttk::TreeType::Contour;
+		case 0: return ttk::ftm::TreeType::Contour;
+		case 1: return ttk::ftm::TreeType::Split;
+		case 2: return ttk::ftm::TreeType::Join;
+		default: return ttk::ftm::TreeType::Contour;
 	}
 }
 void TreeWidget::build_tree() {

@@ -30,8 +30,10 @@ target_link_libraries(topo-volume PUBLIC
 	${OPENGL_LIBRARIES}
 	imgui
 	glt
-	ttk::base::contourForests
-	ttk::vtk::ttkContourForests
+	#ttk::base::contourForests
+	#ttk::vtk::ttkContourForests
+	ttk::base::ftmTree
+	ttk::vtk::ttkFTMTree
 	ttk::vtk::ttkPersistenceCurve
 	ttk::vtk::ttkPersistenceDiagram
 	ttk::vtk::ttkTopologicalSimplification)

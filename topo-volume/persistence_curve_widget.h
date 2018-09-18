@@ -35,7 +35,7 @@ private:
     vtkSmartPointer<vtkThreshold> critical_pairs, persistent_pairs;
     vtkSmartPointer<ttkTopologicalSimplification> simplification;
     vtkSmartPointer<ttkPersistenceCurve> vtkcurve;
-    ttk::TreeType tree_type;
+    ttk::ftm::TreeType tree_type;
 
     // Data for the ui display
     std::vector<glm::vec2> curve_points;
@@ -58,7 +58,7 @@ public:
      */
     void draw_ui();
     // Set the tree type we should be showing the persistence curve for
-    void set_tree_type(const ttk::TreeType &type);
+    void set_tree_type(const ttk::ftm::TreeType &type);
 
 private:
     void draw_persistence_curve(float ysize = 0.0f /* zero means using the whole area */);

@@ -109,8 +109,8 @@ void Volume::set_base_matrix(const glm::mat4 &m){
 }
 void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	// We need to apply the inverse volume transform to the eye to get it in the volume's space
-	glm::mat4 vol_transform = glm::translate(translation) * glm::mat4_cast(rotation)
-		* glm::scale(scaling * vol_render_size) * base_matrix;
+       glm::mat4 vol_transform = glm::translate(glm::mat4(1.f), translation) * glm::mat4_cast(rotation)
+		* glm::scale(glm::mat4(1.f), scaling * vol_render_size) * base_matrix;
 	// Setup shaders, vao and volume texture
 	if (!allocator){
 		glGenVertexArrays(1, &vao);

@@ -2,11 +2,15 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+
 #include <vtkDataSetAttributes.h>
 #include <vtkType.h>
 #include <vtkDataSetAttributes.h>
 #include <vtkDataSet.h>
-#include <ttkContourForests.h>
+
+//#include <ttkContourForests.h>
+#include <ttkFTMTree.h>
+
 #include "imgui-1.49/imgui.h"
 #include <SDL.h>
 #include <glm/ext.hpp>
@@ -188,7 +192,7 @@ void TransferFunction::render(){
 	glBindTexture(GL_TEXTURE_1D_ARRAY, palette_tex[0]);
 }
 void TransferFunction::Execute(vtkObject *caller, unsigned long event_id, void *call_data) {
-	ttkContourForests *cf = dynamic_cast<ttkContourForests*>(caller);
+	ttkFTMTree *cf = dynamic_cast<ttkFTMTree*>(caller);
 	if (cf) {
 		vtkDataSet *data = cf->GetOutput(2);
 		vtkDataSetAttributes *fields = data->GetAttributes(vtkDataSet::POINT);
@@ -311,7 +315,7 @@ void TransferFunction::resample_palette(const Palette &p, std::vector<uint8_t> &
 			}
 			assert(lit[j] != p.rgba_lines[j].line.end());
 			const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-			const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
+			const float val = glm::mix(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
 			out[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
 		}
 	}

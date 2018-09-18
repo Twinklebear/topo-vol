@@ -10,12 +10,12 @@
 #include "persistence_curve_widget.h"
 
 PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int debug)
-    : tree_type(ttk::TreeType::Contour), debuglevel(debug)
+  : tree_type(ttk::ftm::TreeType::Contour), debuglevel(debug)
 {
     diagram = vtkSmartPointer<ttkPersistenceDiagram>::New();
     diagram->SetdebugLevel_(debuglevel);
     diagram->SetInputData(data);
-	diagram->SetUseInputOffsetScalarField(false);
+    //diagram->SetUseInputOffsetScalarField(false);
 
     // Compute critical points
     critical_pairs = vtkSmartPointer<vtkThreshold>::New();
@@ -36,7 +36,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int 
     simplification->SetdebugLevel_(debuglevel);
     simplification->SetUseAllCores(true);
     simplification->SetThreadNumber(std::thread::hardware_concurrency());
-	simplification->SetUseInputOffsetScalarField(false);
+    //simplification->SetUseInputOffsetScalarField(false);
     simplification->SetInputData(0, data);
     simplification->SetInputConnection(1, persistent_pairs->GetOutputPort());
 
@@ -47,7 +47,7 @@ PersistenceCurveWidget::PersistenceCurveWidget(vtkImageData *data, unsigned int 
     vtkcurve->SetInputData(data);
     vtkcurve->SetComputeSaddleConnectors(false);
     vtkcurve->SetUseAllCores(true);
-    vtkcurve->SetUseInputOffsetScalarField(false);
+    //vtkcurve->SetUseInputOffsetScalarField(false);
     vtkcurve->SetThreadNumber(std::thread::hardware_concurrency());
     vtkcurve->Update();
     update_persistence_curve();
@@ -158,7 +158,7 @@ void PersistenceCurveWidget::draw_persistence_diagram(float ysize) {
     ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
 }
-void PersistenceCurveWidget::set_tree_type(const ttk::TreeType &type) {
+void PersistenceCurveWidget::set_tree_type(const ttk::ftm::TreeType &type) {
     if (tree_type != type) {
 	tree_type = type;
 	update_persistence_curve();
@@ -172,9 +172,9 @@ void PersistenceCurveWidget::update_persistence_curve() {
     // Contour Tree: 3
     int tree = 0;
     switch (tree_type) {
-    case ttk::TreeType::Contour: tree = 3; break;
-    case ttk::TreeType::Split: tree = 2; break;
-    case ttk::TreeType::Join: tree = 0; break;
+    case ttk::ftm::TreeType::Contour: tree = 3; break;
+    case ttk::ftm::TreeType::Split: tree = 2; break;
+    case ttk::ftm::TreeType::Join: tree = 0; break;
     default: break;
     }
     vtkTable* table = dynamic_cast<vtkTable*>(vtkcurve->GetOutputInformation(tree)->Get(vtkDataObject::DATA_OBJECT()));

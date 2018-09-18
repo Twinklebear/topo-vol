@@ -3,16 +3,21 @@
 #include <vector>
 #include <string>
 #include <cassert>
+
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+
 #include <vtkSmartPointer.h>
 #include <vtkXMLImageDataReader.h>
 #include <vtkImageReader2.h>
 #include <vtkImageData.h>
 #include <vtkThreshold.h>
-#include <ttkContourForests.h>
+
+#include <ttkFTMTree.h>
+#include <ttkMorseSmaleComplex.h>
 #include <ttkPersistenceCurve.h>
 #include <ttkPersistenceDiagram.h>
 #include <ttkTopologicalSimplification.h>
@@ -100,13 +105,13 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 
 	PersistenceCurveWidget persistence_curve_widget(vol.Get(), debuglevel);
 
-	vtkSmartPointer<ttkContourForests> contour_forest
-		= vtkSmartPointer<ttkContourForests>::New();
+	vtkSmartPointer<ttkFTMTree> contour_forest
+		= vtkSmartPointer<ttkFTMTree>::New();
 	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
-	contour_forest->SetUseInputOffsetScalarField(true);
-	contour_forest->SetinputOffsetScalarFieldName_("OutputOffsetScalarField");
-	contour_forest->SetArcResolution(20);
-	contour_forest->SetSkeletonSmoothing(50);
+	//contour_forest->SetUseInputOffsetScalarField(true);
+	contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
+	//contour_forest->SetArcResolution(20);
+	//contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
 	contour_forest->SetdebugLevel_(debuglevel);
