@@ -29,7 +29,7 @@ target_link_libraries(topo-volume PUBLIC
 	${SDL2_LIBRARY}
 	imgui
 	glt
-	OpenGL::OpenGL
+	${OPENGL_LIBRARIES}
 	ttk::base::ftmTree
 	ttk::vtk::ttkFTMTree
 	ttk::vtk::ttkPersistenceCurve
