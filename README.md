@@ -20,15 +20,9 @@ OpenGL 4.3 is also required.
 
 After getting GLM and SDL2 download and build [VTK](http://vtk.org/) and follow the
 [TTK installation instructions](https://topology-tool-kit.github.io/installation.html) to build TTK.
-Compiling TTK is optional, due to how they configure their build system when using it externally
-the required TTK code is actually built by topo-vol when you build the project.
-Once these packages are setup topo-vol can be built with CMake. When running CMake you'll
-want to specify the location of the VTK cmake file if it's non-standard, and the path to ttk.cmake
-in TTK's `core/` directory. For example:
-
-**Note:** I've fixed TTK's build system for compiling it as a library, use my
-[fork](https://github.com/Twinklebear/ttk) and make and install TTK until this
-is merged into main TTK. (It will be merged soon).
+When running CMake you'll
+want to specify the location of the VTK cmake file if it's non-standard, and the path to TTKBaseConfig.cmake
+and TTKVTKConfig.cmake in TTK's install directory under `lib/cmake/ttk`. For example:
 
 ```
 cmake -DVTK_DIR=<path to VTKConfig.cmake> \
