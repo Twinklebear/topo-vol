@@ -58,17 +58,23 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 	}
 }
 
-Volume::Volume(vtkImageData *vol, const std::string &array_name)
-	: vol_data(vol), data_field_name(array_name), uploaded(false),
+Volume::Volume(vtkImageData *vol, vtkImageData *ftm, const std::string &array_name)
+	:
+	vol_data(vol), ftm_data(ftm),
+	data_field_name(array_name), uploaded(false),
 	isovalue(0.f), show_isosurface(false),
 	transform_dirty(true), translation(0), scaling(1), segmentation_selection_changed(false)
 {
-	vol->AddObserver(vtkCommand::ModifiedEvent, this);
-	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
-	vtk_data = fields->GetArray(array_name.c_str());
-	seg_data = fields->GetArray("SegmentationId");
+	vol_data->AddObserver(vtkCommand::ModifiedEvent, this);
+	ftm_data->AddObserver(vtkCommand::ModifiedEvent, this);
+
+	//vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
+
+	vtk_data = vol_data->GetAttributes(vtkDataSet::POINT)->GetArray(array_name.c_str());
+	seg_data = ftm_data->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
+
 	if (!vtk_data) {
-		throw std::runtime_error("Nonexistant field '" + array_name + "'");
+		throw std::runtime_error("Non-Existing Field '" + array_name + "'");
 	}
 
 	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
@@ -170,9 +176,9 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	// Upload the volume data, it's changed
 	if (!uploaded){
 		uploaded = true;
-		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
-		vtk_data = fields->GetArray(data_field_name.c_str());
-		seg_data = fields->GetArray("SegmentationId");
+
+		vtk_data = vol_data->GetAttributes(vtkDataSet::POINT)->GetArray(data_field_name.c_str());
+		seg_data = ftm_data->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);

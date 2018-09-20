@@ -276,8 +276,8 @@ void TreeWidget::build_tree() {
 	zoom_amount = 1.0;
 	scrolling = glm::vec2(0);
 
-	tree_nodes = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(0));
-	tree_arcs = dynamic_cast<vtkPolyData*>(contour_forest->GetOutput(1));
+	tree_nodes = dynamic_cast<vtkUnstructuredGrid*>(contour_forest->GetOutput(0));
+	tree_arcs = dynamic_cast<vtkUnstructuredGrid*>(contour_forest->GetOutput(1));
 	assert(tree_nodes);
 	assert(tree_arcs);
 
@@ -285,17 +285,20 @@ void TreeWidget::build_tree() {
 	vtkPoints *points = tree_arcs->GetPoints();
 
 	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
-	vtkCellArray *lines = tree_arcs->GetLines();
+	vtkCellArray *lines = tree_arcs->GetCells();
 	if (!points || !lines) {
 		std::cout << "Empty selection\n";
 		return;
 	}
 
 	int idx = 0;
-	vtkDataArray *pt_img_file = point_attribs->GetArray("ImageFile", idx);
+
+	vtkDataArray *pt_img_file = point_attribs->GetArray("Scalar", idx);
 	vtkDataArray *line_seg_id = cell_attribs->GetArray("SegmentationId", idx);
+
 	std::cout << "There are " << std::fixed << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
 	branches.resize(size_t(line_seg_id->GetRange()[1]) + 1, Branch());
+	std::cout << "# of points = " << points->GetNumberOfPoints() << "\n";
 	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
 
 	Branch current_branch;
@@ -337,7 +340,7 @@ void TreeWidget::build_tree() {
 	// Find the number of unique imagefile vals so we can compress the tree down a bit
 	std::set<float> node_img_vals;
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
-		node_img_vals.insert(node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0]);
+		node_img_vals.insert(node_attribs->GetArray("Scalar", idx)->GetTuple(i)[0]);
 	}
 
 	// Build the list of nodes and their connections in the tree
@@ -350,9 +353,9 @@ void TreeWidget::build_tree() {
 		TreeNode n;
 		double pt_pos[3];
 		node_points->GetPoint(i, pt_pos);
-		n.node_id = node_attribs->GetArray("NodeIdentifier", idx)->GetTuple(i)[0];
+		n.node_id = node_attribs->GetArray("NodeId", idx)->GetTuple(i)[0];
 		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
-		n.value = node_attribs->GetArray("ImageFile", idx)->GetTuple(i)[0];
+		n.value = node_attribs->GetArray("Scalar", idx)->GetTuple(i)[0];
 		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
 
 		// Compute node position in the ui layout

@@ -109,7 +109,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 		= vtkSmartPointer<ttkFTMTree>::New();
 	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
 	//contour_forest->SetUseInputOffsetScalarField(true);
-	contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
+	//contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
 	//contour_forest->SetArcResolution(20);
 	//contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
@@ -120,7 +120,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->AddObserver(vtkCommand::EndEvent, &tfcn);
 
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
-	Volume volume(dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
+	Volume volume(vol.Get(), dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
 	tfcn.histogram = &volume.histogram;
 
 	std::vector<unsigned int> prev_seg_selection, prev_seg_palettes;

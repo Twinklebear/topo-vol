@@ -99,4 +99,4 @@ ipch/
 Lesson*/Debug
 Lesson*/Release
 out/
-
+.idea/

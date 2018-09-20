@@ -44,7 +44,8 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n);
 class TreeWidget : public vtkCommand {
 	vtkSmartPointer<ttkFTMTree> contour_forest;
 	int tree_type;
-	vtkPolyData *tree_arcs, *tree_nodes;
+	vtkUnstructuredGrid *tree_nodes;
+	vtkUnstructuredGrid *tree_arcs;
 	std::vector<uint32_t> selected_segmentations;
 	std::vector<Branch> branches;
 	std::vector<TreeNode> nodes;
