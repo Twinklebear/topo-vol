@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/glm.hpp>
 #include <unordered_map>
 #include <ostream>
 #include <vector>
@@ -12,13 +13,13 @@
 // A branch in the tree, representing a specific segmentation
 // id of the data
 struct Branch {
-	size_t segmentation_id;
+	int segmentation_id;
 	// Start/end points of the branch in voxels
 	glm::uvec3 start, end;
 	// Values of the volume at the branch's start/end points
 	float start_val, end_val;
 	// Start and end nodes
-	size_t start_node, end_node;
+	int64_t start_node, end_node;
 };
 std::ostream& operator<<(std::ostream &os, const Branch &b);
 

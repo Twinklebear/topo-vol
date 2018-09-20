@@ -68,23 +68,26 @@ Volume::Volume(vtkImageData *vol, vtkImageData *ftm, const std::string &array_na
 	vol_data->AddObserver(vtkCommand::ModifiedEvent, this);
 	ftm_data->AddObserver(vtkCommand::ModifiedEvent, this);
 
-	//vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
-
 	vtk_data = vol_data->GetAttributes(vtkDataSet::POINT)->GetArray(array_name.c_str());
-	seg_data = ftm_data->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
-
 	if (!vtk_data) {
 		throw std::runtime_error("Non-Existing Field '" + array_name + "'");
+	}
+
+	seg_data = ftm_data->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
+	if (!seg_data) {
+		throw std::runtime_error("Non-Existing Field 'SegmentationId'");
 	}
 
 	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
 	for (size_t i = 0; i < 3; ++i) {
 		dims[i] = vol->GetDimensions()[i];
-		vol_render_size[i] = vol->GetSpacing()[i] * dims[i];
+		vol_render_size[i] = static_cast<float>(vol->GetSpacing()[i] * dims[i]);
 	}
 	std::cout << "dims = { " << dims[0] << ", " << dims[1] << ", " << dims[2] << " }\n";
+	std::cout << "vol_render_size = { " << vol_render_size[0] << ", " << vol_render_size[1] << ", " << vol_render_size[2] << " }\n";
+
 	// Center the volume in the world
-	translate(glm::vec3(vol_render_size[0], vol_render_size[1], vol_render_size[2]) * glm::vec3(-0.5));
+	translate(glm::vec3(vol_render_size[0], vol_render_size[1], vol_render_size[2]) * glm::vec3(-0.5f));
 	build_histogram();
 }
 Volume::~Volume(){
@@ -138,8 +141,8 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 		vol_props = buf_allocator->alloc(2 * sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec2),
 			glt::BufAlignment::UNIFORM_BUFFER);
 		{
-			char *buf = reinterpret_cast<char*>(vol_props.map(GL_UNIFORM_BUFFER,
-						GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT));
+            char *buf = reinterpret_cast<char *>(vol_props.map(GL_UNIFORM_BUFFER,
+                                                               GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_WRITE_BIT));
 			glm::mat4 *mats = reinterpret_cast<glm::mat4*>(buf);
 			glm::vec4 *vecs = reinterpret_cast<glm::vec4*>(buf + 2 * sizeof(glm::mat4));
 			glm::vec2 *vec2s = reinterpret_cast<glm::vec2*>(buf + 2 * sizeof(glm::mat4) + sizeof(glm::vec4));

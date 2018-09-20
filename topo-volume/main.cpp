@@ -43,7 +43,7 @@ void setup_window(SDL_Window *&win, SDL_GLContext &ctx);
 void default_commands(int argc, const char **argv) {
 	for (int i = 1; i < argc; ++i) {
 		std::string str(argv[i]);
-		if (str.compare("-debug") == 0) {
+		if (str == "-debug") {
 			debuglevel = std::stoi(argv[++i]);
 		}
 	}
@@ -108,9 +108,11 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	vtkSmartPointer<ttkFTMTree> contour_forest
 		= vtkSmartPointer<ttkFTMTree>::New();
 	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
-	//contour_forest->SetUseInputOffsetScalarField(true);
-	//contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
-	//contour_forest->SetArcResolution(20);
+    contour_forest->SetForceInputOffsetScalarField(0);
+	contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
+    contour_forest->SetSuperArcSamplingLevel(30);
+    //contour_forest->SetUseInputOffsetScalarField(true);
+    //contour_forest->SetArcResolution(20);
 	//contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());

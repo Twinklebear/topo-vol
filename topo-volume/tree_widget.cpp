@@ -64,8 +64,10 @@ std::ostream& operator<<(std::ostream &os, const TreeNode &n) {
 }
 
 TreeWidget::TreeWidget(vtkSmartPointer<ttkFTMTree> cf, ttkTopologicalSimplification *simplification)
-        : contour_forest(cf), tree_type(ttk::ftm::TreeType::Contour), tree_arcs(nullptr), tree_nodes(nullptr),
-	zoom_amount(1.f), scrolling(0.f)
+:
+contour_forest(cf), tree_type(ttk::ftm::TreeType::Contour),
+tree_arcs(nullptr), tree_nodes(nullptr),
+zoom_amount(1.f), scrolling(0.f)
 {
 	// Watch for updates to the contour forest
 	cf->SetTreeType(tree_type);
@@ -282,44 +284,62 @@ void TreeWidget::build_tree() {
 	assert(tree_arcs);
 
 	vtkDataSetAttributes *point_attribs = tree_arcs->GetAttributes(vtkDataSet::POINT);
+    vtkDataSetAttributes *line_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
 	vtkPoints *points = tree_arcs->GetPoints();
-
-	vtkDataSetAttributes *cell_attribs = tree_arcs->GetAttributes(vtkDataSet::CELL);
 	vtkCellArray *lines = tree_arcs->GetCells();
 	if (!points || !lines) {
 		std::cout << "Empty selection\n";
 		return;
 	}
 
-	int idx = 0;
+    auto *point_regular_mask = vtkCharArray::SafeDownCast(point_attribs->GetArray("RegularMask"));
+    auto *point_scalar = vtkFloatArray::SafeDownCast(point_attribs->GetArray("Scalar"));
+    auto *line_segmentation_id = vtkIntArray::SafeDownCast(line_attribs->GetArray("SegmentationId"));
 
-	vtkDataArray *pt_img_file = point_attribs->GetArray("Scalar", idx);
-	vtkDataArray *line_seg_id = cell_attribs->GetArray("SegmentationId", idx);
+    branches.resize(size_t(line_segmentation_id->GetRange()[1]) + 1, Branch());
 
-	std::cout << "There are " << std::fixed << line_seg_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
-	branches.resize(size_t(line_seg_id->GetRange()[1]) + 1, Branch());
+	std::cout << "There are " << std::fixed << line_segmentation_id->GetRange()[1] + 1 << " Unique segmentation ids\n";
 	std::cout << "# of points = " << points->GetNumberOfPoints() << "\n";
 	std::cout << "# of lines = " << lines->GetNumberOfCells() << "\n";
 
 	Branch current_branch;
-	current_branch.start_val = pt_img_file->GetTuple(0)[0];
-	current_branch.end_val = pt_img_file->GetTuple(1)[0];
-	current_branch.segmentation_id = line_seg_id->GetTuple(0)[0];
-	for (size_t i = 0; i < lines->GetNumberOfCells(); ++i) {
-		const size_t seg = line_seg_id->GetTuple(i)[0];
+	current_branch.start_val = point_scalar->GetValue(0);
+	current_branch.end_val = point_scalar->GetValue(1);
+	current_branch.segmentation_id = line_segmentation_id->GetValue(0);
+
+
+	// Traverse arcs
+	auto idList = vtkSmartPointer<vtkIdList>::New();
+	vtkIdType line_idx = 0;
+	lines->InitTraversal();
+	while(lines->GetNextCell(idList))
+	{
+
+//#ifndef NDEBUG
+//		std::cout << "Line has " << idList->GetNumberOfIds() << " points." << std::endl;
+//		for(vtkIdType pointId = 0; pointId < idList->GetNumberOfIds(); pointId++)
+//		{
+//			std::cout << idList->GetId(pointId) << " ";
+//		}
+//		std::cout << std::endl;
+//#endif
+
+		const int32_t seg = line_segmentation_id->GetValue(line_idx);
+
 		double pt_pos[3];
-		points->GetPoint(i * 2, pt_pos);
+
+		points->GetPoint(idList->GetId(0), pt_pos);
 		const glm::uvec3 start_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
-		points->GetPoint(i * 2 + 1, pt_pos);
+
+		points->GetPoint(idList->GetId(1), pt_pos);
 		const glm::uvec3 end_pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
 
-		const float start_val = pt_img_file->GetTuple(i * 2)[0];
-		const float end_val = pt_img_file->GetTuple(i * 2 + 1)[0];
+		const float start_val = point_scalar->GetValue(idList->GetId(0));
+		const float end_val = point_scalar->GetValue(idList->GetId(1));
 
 		// If this line is part of a new segmentation end our current one
 		if (current_branch.segmentation_id != seg) {
 			branches[current_branch.segmentation_id] = current_branch;
-
 			current_branch = Branch();
 			current_branch.start = start_pos;
 			current_branch.start_val = start_val;
@@ -327,9 +347,12 @@ void TreeWidget::build_tree() {
 		}
 		current_branch.end = end_pos;
 		current_branch.end_val = end_val;
+
 		// TODO: In a case with 2 nodes and 1 branch, we don't set the start/end nodes?
 		current_branch.start_node = -1;
 		current_branch.end_node = -1;
+
+		++line_idx;
 	}
 	// Push on the last segmentation
 	branches[current_branch.segmentation_id] = current_branch;
@@ -340,7 +363,7 @@ void TreeWidget::build_tree() {
 	// Find the number of unique imagefile vals so we can compress the tree down a bit
 	std::set<float> node_img_vals;
 	for (size_t i = 0; i < node_points->GetNumberOfPoints(); ++i) {
-		node_img_vals.insert(node_attribs->GetArray("Scalar", idx)->GetTuple(i)[0]);
+		node_img_vals.insert(node_attribs->GetArray("Scalar")->GetTuple(i)[0]);
 	}
 
 	// Build the list of nodes and their connections in the tree
