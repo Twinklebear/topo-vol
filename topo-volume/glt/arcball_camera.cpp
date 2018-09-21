@@ -1,5 +1,8 @@
 #include <cmath>
 #include <glm/ext.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
+#undef GLM_ENABLE_EXPERIMENTAL
 #include "arcball_camera.h"
 
 glt::ArcBallCamera::ArcBallCamera(const glm::mat4 &look_at, float motion_speed, float rotation_speed,
@@ -49,7 +52,7 @@ bool glt::ArcBallCamera::mouse_scroll(const SDL_MouseWheelEvent &scroll, const f
 	if (scroll.y != 0){
 		glm::vec3 motion{0.f};
 		motion.z = scroll.y * 0.05;
-		translation = glm::translate(glm::mat4(1.f), motion * motion_speed * elapsed) * translation;
+		translation = glm::translate(motion * motion_speed * elapsed) * translation;
 		camera = translation * look_at * glm::mat4_cast(rotation);
 		inv_camera = glm::inverse(camera);
 		return true;
@@ -91,7 +94,7 @@ void glt::ArcBallCamera::pan(const SDL_MouseMotionEvent &mouse, float elapsed){
 		motion.x = mouse.xrel * inv_screen[0];
 		motion.y = -mouse.yrel * inv_screen[1];
 	}
-	translation = glm::translate(glm::mat4(1.f), motion * motion_speed * elapsed) * translation;
+	translation = glm::translate(motion * motion_speed * elapsed) * translation;
 	camera = translation * look_at * glm::mat4_cast(rotation);
 }
 glm::quat glt::screen_to_arcball(const glm::vec2 &p){

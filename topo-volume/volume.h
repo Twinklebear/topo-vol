@@ -23,7 +23,7 @@ class Volume : public vtkCommand {
 	// TODO: Do I need both dims and render_dims? in gpu_dvr we use
 	// render_dims to track the dimensions of the full IDX data
 	// while dims tracks the size of the currently loaded data
-	vtkImageData *vol_data, *ftm_data;
+	vtkImageData *vol_data;
 	vtkDataArray *vtk_data, *seg_data;
 	std::string data_field_name;
 	std::array<int, 3> dims;
@@ -54,7 +54,7 @@ public:
 	std::vector<unsigned int> segmentation_palettes;
 	bool segmentation_selection_changed;
 
-	Volume(vtkImageData *vol, vtkImageData* ftm, const std::string &array_name = "ImageFile");
+	Volume(vtkImageData *vol, const std::string &array_name = "RegionSize");
 	~Volume();
 	Volume(const Volume&) = delete;
 	Volume& operator=(const Volume&) = delete;

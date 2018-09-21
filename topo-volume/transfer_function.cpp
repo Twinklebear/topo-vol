@@ -13,7 +13,12 @@
 
 #include "imgui-1.49/imgui.h"
 #include <SDL.h>
+
 #include <glm/ext.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/compatibility.hpp>
+#undef GLM_ENABLE_EXPERIMENTAL
+
 #include "glt/util.h"
 #include "volume.h"
 #include "transfer_function.h"
@@ -315,7 +320,7 @@ void TransferFunction::resample_palette(const Palette &p, std::vector<uint8_t> &
 			}
 			assert(lit[j] != p.rgba_lines[j].line.end());
 			const float t = (x - lit[j]->x) / ((lit[j] + 1)->x - lit[j]->x);
-			const float val = glm::mix(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
+			const float val = glm::lerp(lit[j]->y, (lit[j] + 1)->y, t) * 255.0;
 			out[i * 4 + j] = static_cast<uint8_t>(glm::clamp(val, 0.f, 255.f));
 		}
 	}

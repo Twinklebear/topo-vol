@@ -122,7 +122,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->AddObserver(vtkCommand::EndEvent, &tfcn);
 
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
-	Volume volume(vol.Get(), dynamic_cast<vtkImageData*>(contour_forest->GetOutput(2)));
+	Volume volume(vtkImageData::SafeDownCast(contour_forest->GetOutput(2)));
 	tfcn.histogram = &volume.histogram;
 
 	std::vector<unsigned int> prev_seg_selection, prev_seg_palettes;
