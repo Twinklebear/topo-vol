@@ -26,8 +26,8 @@ and TTKVTKConfig.cmake in TTK's install directory under `lib/cmake/ttk`. For exa
 
 ```
 cmake -DVTK_DIR=<path to VTKConfig.cmake> \
-	-DTTKBase_DIR=<path to TTKBaseConfig.cmake> \
-	-DTTKVTK_DIR=<path to TTKVTKConfig.cmake>
+      -DTTKBase_DIR=<path to TTKBaseConfig.cmake> \
+      -DTTKVTK_DIR=<path to TTKVTKConfig.cmake> ...
 ```
 
 If you're using the main repo of TTK, note that due to some issues with how TTK
