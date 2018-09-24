@@ -111,9 +111,6 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
     contour_forest->SetForceInputOffsetScalarField(0);
 	contour_forest->SetInputOffsetScalarFieldName("OutputOffsetScalarField");
     contour_forest->SetSuperArcSamplingLevel(30);
-    //contour_forest->SetUseInputOffsetScalarField(true);
-    //contour_forest->SetArcResolution(20);
-	//contour_forest->SetSkeletonSmoothing(50);
 	contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
 	contour_forest->SetdebugLevel_(debuglevel);
