@@ -63,23 +63,31 @@ static void vtk_type_to_gl(const int vtk, GLenum &gl_internal, GLenum &gl_type, 
 	}
 }
 
-Volume::Volume(vtkImageData *vol, const std::string &array_name)
-	: vol_data(vol), data_field_name(array_name), uploaded(false),
-	isovalue(0.f), show_isosurface(false),
-	transform_dirty(true), translation(0), scaling(1), segmentation_selection_changed(false)
+Volume::Volume(vtkImageData *volume, vtkImageData *segmentation)
+	: vol_data(volume),
+	segmentation(segmentation),
+	uploaded(false),
+	isovalue(0.f),
+	show_isosurface(false),
+	transform_dirty(true),
+	base_matrix(1),
+	translation(0),
+	scaling(1),
+	vol_render_size(0),
+	rotation(1.f, 0.f, 0.f, 0.f),
+	segmentation_selection_changed(false)
 {
-	vol->AddObserver(vtkCommand::ModifiedEvent, this);
-	vtkDataSetAttributes *fields = vol->GetAttributes(vtkDataSet::POINT);
-	vtk_data = fields->GetArray(array_name.c_str());
-	seg_data = fields->GetArray("SegmentationId");
+	segmentation->AddObserver(vtkCommand::ModifiedEvent, this);
+	vtk_data = vol_data->GetAttributes(vtkDataSet::POINT)->GetArray("ImageFile");
+	seg_data = segmentation->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
 	if (!vtk_data) {
-		throw std::runtime_error("Nonexistant field '" + array_name + "'");
+		throw std::runtime_error("Nonexistant volume!");
 	}
 
 	vtk_type_to_gl(vtk_data->GetDataType(), internal_format, format, pixel_format);
 	for (size_t i = 0; i < 3; ++i) {
-		dims[i] = vol->GetDimensions()[i];
-		vol_render_size[i] = vol->GetSpacing()[i] * dims[i];
+		dims[i] = vol_data->GetDimensions()[i];
+		vol_render_size[i] = vol_data->GetSpacing()[i] * dims[i];
 	}
 	std::cout << "dims = { " << dims[0] << ", " << dims[1] << ", " << dims[2] << " }\n";
 	// Center the volume in the world
@@ -175,9 +183,8 @@ void Volume::render(std::shared_ptr<glt::BufferAllocator> &buf_allocator) {
 	// Upload the volume data, it's changed
 	if (!uploaded){
 		uploaded = true;
-		vtkDataSetAttributes *fields = vol_data->GetAttributes(vtkDataSet::POINT);
-		vtk_data = fields->GetArray(data_field_name.c_str());
-		seg_data = fields->GetArray("SegmentationId");
+		vtk_data = vol_data->GetAttributes(vtkDataSet::POINT)->GetArray("ImageFile");
+		seg_data = segmentation->GetAttributes(vtkDataSet::POINT)->GetArray("SegmentationId");
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_3D, texture);
@@ -357,6 +364,7 @@ void Volume::upload_volume(vtkDataArray *data) {
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 }
 bool Volume::voxel_selected(const size_t i) const {
+	return true;
 	if (seg_data && !segmentation_selections.empty()) {
 		const int seg = *seg_data->GetTuple(i);
 		return segmentation_selections[seg] != 0;

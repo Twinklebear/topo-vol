@@ -104,7 +104,7 @@ void glt::log_debug_msg(GLenum src, GLenum type, GLuint, GLenum severity, GLsize
 	}
 
 	std::cout << "\n\tTag: " << tag << "\n\tMessage: " << msg
-		<< "\n---------\n";
+		<< "\n---------\n" << std::flush;
 	// Break for a stack trace of sorts
 	assert(severity != GL_DEBUG_SEVERITY_HIGH && type != GL_DEBUG_TYPE_ERROR);
 }

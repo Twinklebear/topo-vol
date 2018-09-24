@@ -7,8 +7,13 @@
 
 glt::ArcBallCamera::ArcBallCamera(const glm::mat4 &look_at, float motion_speed, float rotation_speed,
 		const std::array<size_t, 2> &screen)
-	: look_at(look_at), translation(glm::mat4{}), rotation(glm::quat{}), camera(look_at),
-	inv_camera(glm::inverse(camera)), motion_speed(motion_speed), rotation_speed(rotation_speed),
+	: look_at(look_at),
+	translation(1),
+	rotation(1.f, 0.f, 0.f, 0.f),
+	camera(look_at),
+	inv_camera(glm::inverse(camera)),
+	motion_speed(motion_speed),
+	rotation_speed(rotation_speed),
 	inv_screen({1.f / screen[0], 1.f / screen[1]})
 {}
 const glm::mat4& glt::ArcBallCamera::transform() const {

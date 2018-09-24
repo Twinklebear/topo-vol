@@ -117,12 +117,13 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
 	contour_forest->SetdebugLevel_(debuglevel);
+	contour_forest->SetWithSegmentation(true);
 	// Setup transfer function and volume
 	TransferFunction tfcn;
 	contour_forest->AddObserver(vtkCommand::EndEvent, &tfcn);
 
 	TreeWidget tree_widget(contour_forest, persistence_curve_widget.get_simplification());
-	Volume volume(vtkImageData::SafeDownCast(contour_forest->GetOutput(2)));
+	Volume volume(vol.Get(), vtkImageData::SafeDownCast(contour_forest->GetOutput(2)));
 	tfcn.histogram = &volume.histogram;
 
 	std::vector<unsigned int> prev_seg_selection, prev_seg_palettes;
