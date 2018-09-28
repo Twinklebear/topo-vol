@@ -30,7 +30,6 @@ target_link_libraries(topo-volume PUBLIC
 	imgui
 	glt
 	${OPENGL_LIBRARIES}
-	ttk::base::ftmTree
 	ttk::vtk::ttkFTMTree
 	ttk::vtk::ttkPersistenceCurve
 	ttk::vtk::ttkPersistenceDiagram
