@@ -12,7 +12,6 @@ find_package(TTKBase REQUIRED)
 find_package(TTKVTK REQUIRED)
 find_package(OpenMP REQUIRED)
 
-include(${VTK_USE_FILE})
 include_directories(${SDL2_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${GLM_INCLUDE_DIRS})
 
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_BINARY_DIR})
