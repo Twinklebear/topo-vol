@@ -108,9 +108,7 @@ void run_app(SDL_Window *win, const std::vector<std::string> &args) {
 	vtkSmartPointer<ttkFTMTree> contour_forest
 		= vtkSmartPointer<ttkFTMTree>::New();
 	contour_forest->SetInputConnection(persistence_curve_widget.get_simplification()->GetOutputPort());
-    contour_forest->SetForceInputOffsetScalarField(0);
-	contour_forest->SetInputOffsetScalarFieldName("ttkOffsetScalarField");
-    contour_forest->SetSuperArcSamplingLevel(30);
+	contour_forest->SetSuperArcSamplingLevel(10);
 	contour_forest->SetUseAllCores(true);
 	contour_forest->SetThreadNumber(std::thread::hardware_concurrency());
 	contour_forest->SetdebugLevel_(debuglevel);
