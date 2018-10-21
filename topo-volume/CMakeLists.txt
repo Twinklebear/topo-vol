@@ -29,10 +29,7 @@ target_link_libraries(topo-volume PUBLIC
 	imgui
 	glt
 	${OPENGL_LIBRARIES}
-	ttk::vtk::ttkFTMTree
-	ttk::vtk::ttkPersistenceCurve
-	ttk::vtk::ttkPersistenceDiagram
-	ttk::vtk::ttkTopologicalSimplification)
+	ttk::vtk::ttkAll)
 
 if (TARGET OpenGL::GLX)
 	target_link_libraries(topo-volume PUBLIC OpenGL::GLX)
