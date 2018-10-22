@@ -100,3 +100,5 @@ Lesson*/Debug
 Lesson*/Release
 out/
 .idea/
+build-win/
+*.raw
