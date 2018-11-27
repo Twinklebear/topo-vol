@@ -4,13 +4,10 @@ project(TopoVol)
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${TopoVol_SOURCE_DIR}/cmake")
 set(RESOURCE_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/res)
 
-find_package(VTK REQUIRED)
 find_package(SDL2 REQUIRED)
 find_package(glm REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(TTKBase REQUIRED)
 find_package(TTKVTK REQUIRED)
-find_package(OpenMP REQUIRED)
 
 include_directories(${SDL2_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${GLM_INCLUDE_DIRS})
 
