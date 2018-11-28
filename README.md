@@ -3,9 +3,9 @@
 topo-vol is a topology guided volume exploration and analysis tool, written for
 the final project in
 [Bei Wang's Computational Topology Course](http://www.sci.utah.edu/~beiwang/teaching/cs6170-spring-2017/schedule.html).
-It is built on top of the [Topology ToolKit](https://topology-tool-kit.github.io/) and
-[VTK](http://www.vtk.org/) for computation, and uses
-[ImGui](https://github.com/ocornut/imgui) and a custom rendering system for the UI and volume rendering.
+It's built on top of the [Topology ToolKit](https://topology-tool-kit.github.io/) and
+[VTK](http://www.vtk.org/) for computation, uses
+[ImGui](https://github.com/ocornut/imgui) for the UI, and a custom rendering system for the volume rendering.
 By computing relevant topological structures (e.g. the contour tree) and classifying segments of
 data corresponding to the branches in this tree we can avoid occlusion issues with global transfer
 functions and create more useful, detailed renderings.
@@ -43,7 +43,7 @@ building the Release build for better performance.
 topo-vol currently supports scalar-field VTI files with data type `char`, `unsigned char`,
 `short`, `unsigned short` or `float`.
 To get some data to test on you can load some of the raw files from the
-[Open SciVis Datasets](https://github.com/pavolzetor/open_scivis_datasets)
+[Open SciVis Datasets](https://klacansky.com/open-scivis-datasets/)
 collection directly, or load them in [ParaView](http://www.paraview.org/) and export them as VTI. If you
 built TTK with ParaView you can use that build to convert the data. Note that larger datasets
 will require much longer computation time and memory. When loading a raw file the
