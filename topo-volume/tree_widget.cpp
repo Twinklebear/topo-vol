@@ -376,10 +376,11 @@ void TreeWidget::build_tree() {
 		TreeNode n;
 		double pt_pos[3];
 		node_points->GetPoint(i, pt_pos);
+		node_attribs->PrintSelf(std::cout, vtkIndent(0));
 		n.node_id = node_attribs->GetArray("NodeId", idx)->GetTuple(i)[0];
 		n.pos = glm::uvec3(pt_pos[0], pt_pos[1], pt_pos[2]);
 		n.value = node_attribs->GetArray("Scalar", idx)->GetTuple(i)[0];
-		n.type = node_attribs->GetArray("NodeType", idx)->GetTuple(i)[0];
+		n.type = node_attribs->GetArray("CriticalType", idx)->GetTuple(i)[0];
 
 		// Compute node position in the ui layout
 		auto fnd = node_img_vals.find(n.value);
